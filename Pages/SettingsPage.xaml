@@ -36,9 +36,9 @@
 
             <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
                 <StackPanel>
-                    <TextBlock Text="IMPORTAR CONFIG (TXT/JSON)" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
+                    <TextBlock Text="IMPORTAR CONFIG (TXT)" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
                     <TextBlock Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="0,0,0,8"
-                               Text="Você pode importar um arquivo com API key, Client ID e Client Secret. Formatos aceitos: key=value, JSON simples ou o JSON do Google OAuth (installed/web)." />
+                               Text="Importe um arquivo .txt com key=valor (YouTubeApiKey, GoogleClientId, GoogleClientSecret). Também aceita JSON/OAuth JSON." />
                     <Button Content="Importar arquivo..." Style="{StaticResource MetroButtonStyle}" Click="ImportFile_Click" />
                     <TextBlock Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0"
                                Text="Auto-import: coloque 'lumia-yt-config.txt' em LocalState do app e ele importa ao abrir Configurações." />

@@ -1,7 +1,13 @@
-# LumiaYT - config exemplo
-# Preencha e importe em Configurações > "Importar arquivo..."
-# Ou renomeie para lumia-yt-config.txt e copie para a pasta LocalState do app.
+# LumiaYT config
+# Preencha os valores abaixo e importe em Configurações > "Importar arquivo..."
 
+# YouTube Data API v3 (Google Cloud > APIs & Services > Credentials > API key)
 YouTubeApiKey=COLE_SUA_API_KEY_AQUI
+
+# OAuth Client (Google Cloud > Credentials > OAuth client ID)
+# Para login por código no W10M, use tipo "TVs and Limited Input devices".
 GoogleClientId=COLE_SEU_CLIENT_ID_AQUI.apps.googleusercontent.com
+
+# Client Secret: geralmente necessário para tipo "Web application".
+# Para tipo "TVs and Limited Input devices", muitas vezes não tem; se não tiver, deixe em branco ou remova a linha.
 GoogleClientSecret=COLE_SEU_CLIENT_SECRET_AQUI
