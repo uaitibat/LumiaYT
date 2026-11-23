@@ -67,6 +67,7 @@ namespace LumiaYT.Services
             }
 
             // 2) Piped fallback
+            bool pipedTried = false;
             foreach (var inst in PipedInstances)
             {
                 try
@@ -77,15 +78,16 @@ namespace LumiaYT.Services
                     {
                         stream.Source = "Piped";
                         dbg.Add("Piped:ok");
-                        LastDebug = string.Join(" | ", dbg);
+                        LastDebug = string.Join("; ", dbg);
                         return stream;
                     }
-                    dbg.Add("Piped:empty");
+                    pipedTried = true;
                 }
-                catch (Exception ex) { dbg.Add("Piped:err=" + ex.Message); }
+                catch { pipedTried = true; }
             }
+            if (pipedTried) dbg.Add("Piped:falhou");
 
-            LastDebug = string.Join(" | ", dbg);
+            LastDebug = string.Join("; ", dbg);
             return null;
         }
 

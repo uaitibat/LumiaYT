@@ -40,7 +40,7 @@ namespace LumiaYT.Pages
                     var source = MediaSource.CreateFromUri(new Uri(stream.Url));
                     _player.Source = source;
                     _player.Play();
-                    StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "") + " via " + (stream.Source ?? "?") + ". " + (string.IsNullOrWhiteSpace(dbg) ? "" : "[" + dbg + "]");
+                    StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "") + " via " + (stream.Source ?? "?") + ".";
                 }
                 else
                 {
