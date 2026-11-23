@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using LumiaYT.Models;
 using Newtonsoft.Json.Linq;
@@ -7,15 +8,25 @@ using Windows.Security.Authentication.Web;
 
 namespace LumiaYT.Services
 {
+    public sealed class DeviceCodeInfo
+    {
+        public string DeviceCode { get; set; } = string.Empty;
+        public string UserCode { get; set; } = string.Empty;
+        public string VerificationUrl { get; set; } = string.Empty;
+        public int ExpiresIn { get; set; }
+        public int Interval { get; set; } = 5;
+        public string Message { get; set; } = string.Empty;
+    }
+
     public static class AuthService
     {
         private const string AuthEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
+        private const string DeviceCodeEndpoint = "https://oauth2.googleapis.com/device/code";
         private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
         private const string Scope = "https://www.googleapis.com/auth/youtube.readonly";
 
         public static string GetRedirectUri()
         {
-            // For desktop/UWP WAB, use the WebAuthenticationBroker redirect URI
             return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
         }
 
@@ -56,6 +67,123 @@ namespace LumiaYT.Services
             }
         }
 
+        public static async Task<DeviceCodeInfo> StartDeviceCodeFlowAsync()
+        {
+            var settings = await SettingsService.GetAsync();
+            if (string.IsNullOrWhiteSpace(settings.GoogleClientId))
+                return null;
+
+            var form = new Dictionary<string, string>
+            {
+                { "client_id", settings.GoogleClientId },
+                { "scope", Scope }
+            };
+
+            var resp = await HttpService.PostFormAsync(DeviceCodeEndpoint, form);
+            if (resp == null || !resp.IsSuccessStatusCode) return null;
+            var json = await resp.Content.ReadAsStringAsync();
+            try
+            {
+                var obj = JObject.Parse(json);
+                var deviceCode = obj.Value<string>("device_code");
+                var userCode = obj.Value<string>("user_code");
+                if (string.IsNullOrWhiteSpace(deviceCode) || string.IsNullOrWhiteSpace(userCode)) return null;
+
+                return new DeviceCodeInfo
+                {
+                    DeviceCode = deviceCode,
+                    UserCode = userCode,
+                    VerificationUrl = obj.Value<string>("verification_url") ?? obj.Value<string>("verification_uri") ?? "https://www.google.com/device",
+                    ExpiresIn = obj.Value<int?>("expires_in") ?? 1800,
+                    Interval = obj.Value<int?>("interval") ?? 5,
+                    Message = obj.Value<string>("message") ?? ""
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public static async Task<bool> PollDeviceCodeAsync(DeviceCodeInfo info, CancellationToken ct, Action<string> statusCallback)
+        {
+            if (info == null) return false;
+            var settings = await SettingsService.GetAsync();
+            if (string.IsNullOrWhiteSpace(settings.GoogleClientId)) return false;
+
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(info.ExpiresIn);
+            var interval = Math.Max(3, info.Interval);
+
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                if (ct.IsCancellationRequested) return false;
+                try { await Task.Delay(TimeSpan.FromSeconds(interval), ct); }
+                catch (TaskCanceledException) { return false; }
+
+                if (ct.IsCancellationRequested) return false;
+
+                var form = new Dictionary<string, string>
+                {
+                    { "client_id", settings.GoogleClientId },
+                    { "client_secret", settings.GoogleClientSecret ?? string.Empty },
+                    { "device_code", info.DeviceCode },
+                    { "grant_type", "urn:ietf:params:oauth:grant-type:device_code" }
+                };
+
+                var resp = await HttpService.PostFormAsync(TokenEndpoint, form);
+                if (resp == null) continue;
+                var json = await resp.Content.ReadAsStringAsync();
+
+                try
+                {
+                    var obj = JObject.Parse(json);
+                    var error = obj.Value<string>("error");
+                    if (string.IsNullOrWhiteSpace(error))
+                    {
+                        if (ApplyTokenResponse(settings, json, save: true))
+                        {
+                            statusCallback?.Invoke("Login concluído.");
+                            return true;
+                        }
+                        statusCallback?.Invoke("Resposta de token inválida.");
+                        return false;
+                    }
+
+                    if (error == "authorization_pending")
+                    {
+                        statusCallback?.Invoke("Aguardando você autorizar no navegador...");
+                        continue;
+                    }
+                    if (error == "slow_down")
+                    {
+                        interval += 5;
+                        statusCallback?.Invoke("Aguardando autorização (reduzindo polling)...");
+                        continue;
+                    }
+                    if (error == "access_denied")
+                    {
+                        statusCallback?.Invoke("Acesso negado no Google.");
+                        return false;
+                    }
+                    if (error == "expired_token")
+                    {
+                        statusCallback?.Invoke("Código expirado. Gere um novo código.");
+                        return false;
+                    }
+
+                    statusCallback?.Invoke("Erro: " + error);
+                    return false;
+                }
+                catch
+                {
+                    statusCallback?.Invoke("Erro ao ler resposta do Google.");
+                }
+            }
+
+            statusCallback?.Invoke("Código expirado. Gere um novo código.");
+            return false;
+        }
+
         private static async Task<bool> ExchangeCodeAsync(AppSettings settings, string code, string redirectUri)
         {
             var form = new Dictionary<string, string>
@@ -93,7 +221,7 @@ namespace LumiaYT.Services
             {
                 { "refresh_token", settings.RefreshToken },
                 { "client_id", settings.GoogleClientId },
-                { "client_secret", settings.GoogleClientSecret },
+                { "client_secret", settings.GoogleClientSecret ?? string.Empty },
                 { "grant_type", "refresh_token" }
             };
             var resp = await HttpService.PostFormAsync(TokenEndpoint, form);

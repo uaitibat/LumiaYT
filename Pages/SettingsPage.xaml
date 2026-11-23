@@ -19,7 +19,7 @@
                 <StackPanel>
                     <TextBlock Text="YOUTUBE DATA API" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
                     <TextBlock Text="API Key (v3)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
-                    <TextBox x:Name="ApiKeyBox" PlaceholderText="AIza..." Margin="0,0,0,0" />
+                    <TextBox x:Name="ApiKeyBox" PlaceholderText="AIza..." />
                 </StackPanel>
             </Border>
 
@@ -28,7 +28,7 @@
                     <TextBlock Text="LOGIN OFICIAL GOOGLE" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
                     <TextBlock Text="Client ID" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
                     <TextBox x:Name="ClientIdBox" PlaceholderText="....apps.googleusercontent.com" Margin="0,0,0,10" />
-                    <TextBlock Text="Client Secret" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
+                    <TextBlock Text="Client Secret (opcional no device code)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
                     <PasswordBox x:Name="ClientSecretBox" PlaceholderText="Client secret" Margin="0,0,0,10" />
                     <TextBlock x:Name="RedirectUriText" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" />
                 </StackPanel>
@@ -38,11 +38,21 @@
                 <StackPanel>
                     <TextBlock Text="CONTA" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
                     <TextBlock x:Name="AuthStatusText" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" Margin="0,0,0,10" />
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Salvar" Style="{StaticResource MetroButtonStyle}" Background="{ThemeResource AccentBrush}" Foreground="{ThemeResource TextOnAccentBrush}" Click="Save_Click" Margin="0,0,8,0" />
-                        <Button Content="Login Google" Style="{StaticResource MetroButtonStyle}" Click="Login_Click" Margin="0,0,8,0" />
+                        <Button Content="Login WAB" Style="{StaticResource MetroButtonStyle}" Click="Login_Click" Margin="0,0,8,0" />
                         <Button Content="Logout" Style="{StaticResource MetroButtonStyle}" Click="Logout_Click" />
                     </StackPanel>
+                    <Button x:Name="DeviceCodeButton" Content="Login por código (recomendado W10M)" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="DeviceCodeLogin_Click" />
+                    <Border x:Name="DeviceCodePanel" Visibility="Collapsed" Background="{ThemeResource SurfaceAltBrush}" CornerRadius="3" Padding="10" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Abra no PC/outro navegador:" Style="{StaticResource MetaTextStyle}" />
+                            <TextBlock x:Name="DeviceUrlText" Style="{StaticResource BodyTextStyle}" Foreground="{ThemeResource TextPrimaryBrush}" IsTextSelectionEnabled="True" Margin="0,2,0,8" />
+                            <TextBlock Text="Código:" Style="{StaticResource MetaTextStyle}" />
+                            <TextBlock x:Name="DeviceCodeText" FontSize="28" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextBrush}" IsTextSelectionEnabled="True" Margin="0,2,0,8" />
+                            <TextBlock x:Name="DeviceStatusText" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 
