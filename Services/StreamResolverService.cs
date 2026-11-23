@@ -15,6 +15,18 @@ namespace LumiaYT.Services
         public bool IsAudioOnly { get; set; }
         public string MimeType { get; set; } = string.Empty;
         public string Source { get; set; } = string.Empty;
+        public int Itag { get; set; }
+        public int Height { get; set; }
+
+        public string DisplayLabel
+        {
+            get
+            {
+                var q = string.IsNullOrWhiteSpace(QualityLabel) ? "Auto" : QualityLabel;
+                var src = string.IsNullOrWhiteSpace(Source) ? "" : " - " + Source;
+                return q + src;
+            }
+        }
     }
 
     public static class StreamResolverService
@@ -34,61 +46,76 @@ namespace LumiaYT.Services
 
         public static string LastDebug { get; private set; } = "";
 
-        public static async Task<ResolvedStream> ResolveAsync(string videoId)
+        public static async Task<List<ResolvedStream>> ResolveAllAsync(string videoId)
         {
             LastDebug = "";
-            if (string.IsNullOrWhiteSpace(videoId)) return null;
+            if (string.IsNullOrWhiteSpace(videoId)) return new List<ResolvedStream>();
             var dbg = new List<string>();
+            var all = new List<ResolvedStream>();
 
-            // 1) InnerTube - try clients that often return direct URLs on legacy devices
-            var clients = new[]
-            {
-                new InnerTubeClient("ANDROID_VR", "1.62.27", "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip", 32, "AIzaSyDSXy9qVx1CzG2S7hYy7G-F6-HQ8_kB4vI"),
-                new InnerTubeClient("ANDROID", "19.17.34", null, 30, null),
-                new InnerTubeClient("IOS", "19.16.3", "com.google.ios.youtube/19.16.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)", null, null),
-                new InnerTubeClient("TVHTML5_SIMPLY_EMBEDDED_PLAYER", "2.0", null, null, null),
-            };
+            // Run InnerTube and Piped in parallel for speed
+            var innerTask = ResolveInnerTubeAllAsync(videoId, dbg);
+            var pipedTask = ResolvePipedAllAsync(videoId, dbg);
 
-            foreach (var client in clients)
-            {
-                try
-                {
-                    var result = await ResolveViaInnerTubeAsync(videoId, client, dbg);
-                    if (result != null)
-                    {
-                        LastDebug = string.Join(" | ", dbg);
-                        return result;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    dbg.Add(client.Name + ":err=" + ex.Message);
-                }
-            }
+            await Task.WhenAll(innerTask, pipedTask);
+            try { all.AddRange(innerTask.Result); } catch { }
+            try { all.AddRange(pipedTask.Result); } catch { }
 
-            // 2) Piped fallback
-            bool pipedTried = false;
-            foreach (var inst in PipedInstances)
+            // Deduplicate by URL, prefer better labels
+            var dedup = all
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Url))
+                .GroupBy(s => s.Url)
+                .Select(g => g.First())
+                .ToList();
+
+            var ordered = OrderCandidates(dedup);
+            LastDebug = string.Join("; ", dbg);
+            return ordered;
+        }
+
+        public static async Task<ResolvedStream> ResolveAsync(string videoId)
+        {
+            var all = await ResolveAllAsync(videoId);
+            return PickDefault(all);
+        }
+
+        public static ResolvedStream PickDefault(List<ResolvedStream> streams)
+        {
+            if (streams == null || streams.Count == 0) return null;
+            return streams.Where(c => !c.IsAudioOnly).OrderByDescending(c => Score(c, true)).FirstOrDefault()
+                ?? streams.OrderByDescending(c => Score(c, true)).FirstOrDefault();
+        }
+
+        private static List<ResolvedStream> OrderCandidates(List<ResolvedStream> candidates)
+        {
+            return candidates
+                .Where(c => c != null)
+                .OrderBy(c => c.IsAudioOnly ? 1 : 0)
+                .ThenByDescending(c => c.Height)
+                .ThenByDescending(c => Score(c, false))
+                .ToList();
+        }
+
+        private static async Task<List<ResolvedStream>> ResolvePipedAllAsync(string videoId, List<string> dbg)
+        {
+            var tasks = PipedInstances.Select(async inst =>
             {
                 try
                 {
                     var json = await HttpService.GetStringAsync(inst + "/streams/" + Uri.EscapeDataString(videoId));
-                    var stream = PickFromPiped(json);
-                    if (stream != null)
-                    {
-                        stream.Source = "Piped";
-                        dbg.Add("Piped:ok");
-                        LastDebug = string.Join("; ", dbg);
-                        return stream;
-                    }
-                    pipedTried = true;
+                    var list = PickAllFromPiped(json);
+                    foreach (var s in list) s.Source = "Piped";
+                    return list;
                 }
-                catch { pipedTried = true; }
-            }
-            if (pipedTried) dbg.Add("Piped:falhou");
+                catch { return new List<ResolvedStream>(); }
+            }).ToArray();
 
-            LastDebug = string.Join("; ", dbg);
-            return null;
+            var results = await Task.WhenAll(tasks);
+            var merged = new List<ResolvedStream>();
+            foreach (var r in results) merged.AddRange(r);
+            if (merged.Count > 0) dbg.Add("Piped:ok");
+            else dbg.Add("Piped:falhou");
+            return merged;
         }
 
         private sealed class InnerTubeClient
@@ -98,7 +125,24 @@ namespace LumiaYT.Services
             { Name = name; Version = version; UserAgent = ua; AndroidSdk = sdk; ApiKey = apiKey; }
         }
 
-        private static async Task<ResolvedStream> ResolveViaInnerTubeAsync(string videoId, InnerTubeClient client, List<string> dbg)
+        private static async Task<List<ResolvedStream>> ResolveInnerTubeAllAsync(string videoId, List<string> dbg)
+        {
+            var clients = new[]
+            {
+                new InnerTubeClient("ANDROID_VR", "1.62.27", "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip", 32, "AIzaSyDSXy9qVx1CzG2S7hYy7G-F6-HQ8_kB4vI"),
+                new InnerTubeClient("ANDROID", "19.17.34", null, 30, null),
+                new InnerTubeClient("IOS", "19.16.3", "com.google.ios.youtube/19.16.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)", null, null),
+                new InnerTubeClient("TVHTML5_SIMPLY_EMBEDDED_PLAYER", "2.0", null, null, null),
+            };
+
+            var tasks = clients.Select(c => ResolveViaInnerTubeAsync(videoId, c, dbg)).ToArray();
+            var results = await Task.WhenAll(tasks);
+            var all = new List<ResolvedStream>();
+            foreach (var r in results) if (r != null) all.AddRange(r);
+            return all;
+        }
+
+        private static async Task<List<ResolvedStream>> ResolveViaInnerTubeAsync(string videoId, InnerTubeClient client, List<string> dbg)
         {
             var clientObj = new JObject
             {
@@ -123,17 +167,17 @@ namespace LumiaYT.Services
             if (!string.IsNullOrWhiteSpace(client.ApiKey)) endpoint += "&key=" + client.ApiKey;
 
             var resp = await HttpService.PostJsonAsync(endpoint, body.ToString(Formatting.None));
-            if (string.IsNullOrWhiteSpace(resp)) { dbg.Add(client.Name + ":empty"); return null; }
+            if (string.IsNullOrWhiteSpace(resp)) { dbg.Add(client.Name + ":empty"); return new List<ResolvedStream>(); }
 
             JObject obj;
-            try { obj = JObject.Parse(resp); } catch { dbg.Add(client.Name + ":badjson"); return null; }
+            try { obj = JObject.Parse(resp); } catch { dbg.Add(client.Name + ":badjson"); return new List<ResolvedStream>(); }
 
             var status = obj.SelectToken("playabilityStatus.status")?.ToString() ?? "";
             if (!string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase))
             {
                 var reason = obj.SelectToken("playabilityStatus.reason")?.ToString() ?? status;
-                dbg.Add(client.Name + ":" + Trim(reason, 40));
-                return null;
+                dbg.Add(client.Name + ":" + Trim(reason, 30));
+                return new List<ResolvedStream>();
             }
 
             var formats = new List<JToken>();
@@ -141,7 +185,7 @@ namespace LumiaYT.Services
             var f2 = obj.SelectToken("streamingData.adaptiveFormats") as JArray;
             if (f1 != null) formats.AddRange(f1);
             if (f2 != null) formats.AddRange(f2);
-            if (formats.Count == 0) { dbg.Add(client.Name + ":noformats"); return null; }
+            if (formats.Count == 0) { dbg.Add(client.Name + ":noformats"); return new List<ResolvedStream>(); }
 
             var candidates = new List<ResolvedStream>();
             bool needsDecipher = false;
@@ -164,10 +208,6 @@ namespace LumiaYT.Services
                             {
                                 var sp = string.IsNullOrWhiteSpace(c.Sp) ? "signature" : c.Sp;
                                 url += "&" + sp + "=" + Uri.EscapeDataString(sig);
-                                if (!string.IsNullOrWhiteSpace(c.N))
-                                {
-                                    // n-param transform not implemented; keep url as-is
-                                }
                             }
                             else { url = null; }
                         }
@@ -180,25 +220,31 @@ namespace LumiaYT.Services
                 var quality = f.Value<string>("qualityLabel") ?? f.Value<string>("quality") ?? "";
                 var audioQuality = f.Value<string>("audioQuality");
                 bool audioOnly = string.IsNullOrWhiteSpace(quality) && !string.IsNullOrWhiteSpace(audioQuality);
+                int itag = f.Value<int?>("itag") ?? 0;
+                int height = f.Value<int?>("height") ?? ParseHeight(quality);
                 candidates.Add(new ResolvedStream
                 {
                     Url = url,
                     QualityLabel = quality,
                     IsAudioOnly = audioOnly,
                     MimeType = mime,
-                    Source = client.Name
+                    Source = client.Name,
+                    Itag = itag,
+                    Height = height
                 });
             }
 
-            var best = candidates.Where(c => !c.IsAudioOnly).OrderByDescending(c => Score(c)).FirstOrDefault()
-                ?? candidates.OrderByDescending(c => Score(c)).FirstOrDefault();
-            if (best != null)
-            {
-                dbg.Add(client.Name + ":ok" + (needsDecipher ? "+dec" : ""));
-                return best;
-            }
-            dbg.Add(client.Name + ":nosel");
-            return null;
+            if (candidates.Count > 0) dbg.Add(client.Name + ":ok" + (needsDecipher ? "+dec" : ""));
+            else dbg.Add(client.Name + ":nosel");
+            return candidates;
+        }
+
+        private static int ParseHeight(string quality)
+        {
+            if (string.IsNullOrWhiteSpace(quality)) return 0;
+            var m = Regex.Match(quality, @"(\d{3,4})");
+            if (m.Success && int.TryParse(m.Groups[1].Value, out var h)) return h;
+            return 0;
         }
 
         private sealed class CipherParts { public string Url; public string S; public string Sp; public string N; }
@@ -260,7 +306,6 @@ namespace LumiaYT.Services
 
         private static async Task<string> FindPlayerJsUrlAsync()
         {
-            // Try embed page first (smaller)
             var urls = new[]
             {
                 "https://www.youtube.com/embed/dQw4w9WgXcQ",
@@ -312,11 +357,9 @@ namespace LumiaYT.Services
             public static Decipherer Parse(string js)
             {
                 if (string.IsNullOrWhiteSpace(js)) return null;
-                // Find decipher function name: ...a=a.split("");XX.YY(a,NN);...;return a.join("")
                 var funcBody = FindDecipherFunctionBody(js);
                 if (string.IsNullOrWhiteSpace(funcBody)) return null;
 
-                // Find helper object name used in body, e.g. AB.CD(a,1)
                 var helperMatch = Regex.Match(funcBody, @"([A-Za-z0-9_$]{2,})\.[A-Za-z0-9_$]{2,}\([A-Za-z0-9_$],\s*\d+\)");
                 if (!helperMatch.Success) return null;
                 var helperName = helperMatch.Groups[1].Value;
@@ -335,17 +378,12 @@ namespace LumiaYT.Services
                     if (!helperObj.TryGetValue(meth, out type)) continue;
                     ops.Add(new DecipherOp { Type = type, Arg = arg });
                 }
-                // reverse call: a.reverse()
-                if (Regex.IsMatch(funcBody, @"\.reverse\(\)")) { /* reverse may be direct; handled above? rare in modern */ }
-
-                // Also handle bare reverse in function body order? Common pattern has only helper calls.
                 if (ops.Count == 0) return null;
                 return new Decipherer(ops);
             }
 
             private static string FindDecipherFunctionBody(string js)
             {
-                // Pattern 1: function(a){a=a.split("");...;return a.join("")}
                 var patterns = new[]
                 {
                     @"function\(([A-Za-z0-9_$])\)\{\1=\1\.split\(""""""\);(.+?);return \1\.join\(""""""\)\}",
@@ -367,7 +405,6 @@ namespace LumiaYT.Services
                 if (!m.Success) return null;
                 var objBody = m.Groups[1].Value;
                 var dict = new Dictionary<string, DecipherOpType>();
-                // method:def pairs
                 var methods = Regex.Matches(objBody, @"([A-Za-z0-9_$]{2,})\s*:\s*function\([^\)]*\)\{([^\}]*)\}");
                 foreach (Match mm in methods)
                 {
@@ -384,11 +421,12 @@ namespace LumiaYT.Services
         private enum DecipherOpType { Reverse, Slice, Swap }
         private sealed class DecipherOp { public DecipherOpType Type; public int Arg; }
 
-        private static ResolvedStream PickFromPiped(string json)
+        private static List<ResolvedStream> PickAllFromPiped(string json)
         {
-            if (string.IsNullOrWhiteSpace(json)) return null;
-            var obj = JObject.Parse(json);
-            var candidates = new List<ResolvedStream>();
+            var list = new List<ResolvedStream>();
+            if (string.IsNullOrWhiteSpace(json)) return list;
+            JObject obj;
+            try { obj = JObject.Parse(json); } catch { return list; }
 
             Action<JToken, bool> addFromArray = (arr, audioOnly) =>
             {
@@ -399,37 +437,49 @@ namespace LumiaYT.Services
                     var url = s.Value<string>("url") ?? "";
                     if (string.IsNullOrWhiteSpace(url)) continue;
                     var mime = s.Value<string>("mimeType") ?? s.Value<string>("format") ?? "";
-                    candidates.Add(new ResolvedStream
+                    var quality = s.Value<string>("quality") ?? "";
+                    list.Add(new ResolvedStream
                     {
                         Url = url,
-                        QualityLabel = s.Value<string>("quality") ?? "",
+                        QualityLabel = quality,
                         IsAudioOnly = audioOnly,
-                        MimeType = mime
+                        MimeType = mime,
+                        Height = ParseHeight(quality)
                     });
                 }
             };
 
             addFromArray(obj["videoStreams"], false);
             addFromArray(obj["audioStreams"], true);
-
-            var best = candidates.Where(c => !c.IsAudioOnly).OrderByDescending(c => Score(c)).FirstOrDefault();
-            return best ?? candidates.OrderByDescending(c => Score(c)).FirstOrDefault();
+            return list;
         }
 
-        private static int Score(ResolvedStream c)
+        private static int Score(ResolvedStream c, bool forDefault)
         {
             int score = 0;
             var mime = (c.MimeType ?? "").ToLowerInvariant();
             var q = (c.QualityLabel ?? "").ToLowerInvariant();
+            int h = c.Height > 0 ? c.Height : ParseHeight(q);
             if (mime.Contains("mp4")) score += 100;
             if (mime.Contains("h264") || mime.Contains("avc")) score += 30;
-            if (q.Contains("360")) score += 50;
-            else if (q.Contains("480")) score += 45;
-            else if (q.Contains("720")) score += 40;
-            else if (q.Contains("240")) score += 30;
-            else if (q.Contains("144")) score += 20;
-            if (q.Contains("1080") || q.Contains("1440") || q.Contains("2160")) score -= 20;
             if (c.Url.IndexOf("googlevideo", StringComparison.OrdinalIgnoreCase) >= 0) score += 10;
+
+            if (forDefault)
+            {
+                // Prefer fast start on Lumia 640: 360p > 240p > 480p > 720p > 144p
+                if (h == 360) score += 120;
+                else if (h == 240) score += 110;
+                else if (h == 480) score += 90;
+                else if (h == 144) score += 70;
+                else if (h == 720) score += 60;
+                else if (h >= 1080) score -= 20;
+            }
+            else
+            {
+                if (h > 0) score += Math.Min(h, 720) / 10;
+            }
+
+            if (q.Contains("audio")) score -= 200;
             return score;
         }
 

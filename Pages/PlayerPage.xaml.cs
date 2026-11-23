@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using LumiaYT.Models;
 using LumiaYT.Services;
 using Windows.Media.Core;
@@ -15,6 +17,8 @@ namespace LumiaYT.Pages
     {
         private MediaPlayer _player;
         private string _videoId;
+        private List<ResolvedStream> _streams = new List<ResolvedStream>();
+        private bool _suppressQualityChange;
 
         public PlayerPage() { InitializeComponent(); }
 
@@ -29,28 +33,72 @@ namespace LumiaYT.Pages
             ChannelText.Text = item.ChannelTitle ?? "";
             DescText.Text = item.Description ?? "";
             StatusText.Text = "Resolvendo stream compatível...";
+            QualityCombo.IsEnabled = false;
 
             EnsurePlayer();
             try
             {
-                var stream = await StreamResolverService.ResolveAsync(item.Id);
-                var dbg = StreamResolverService.LastDebug;
-                if (stream != null && !string.IsNullOrWhiteSpace(stream.Url))
+                var streams = await StreamResolverService.ResolveAllAsync(item.Id);
+                _streams = streams ?? new List<ResolvedStream>();
+                var selected = StreamResolverService.PickDefault(_streams);
+
+                if (selected != null && !string.IsNullOrWhiteSpace(selected.Url))
                 {
-                    var source = MediaSource.CreateFromUri(new Uri(stream.Url));
-                    _player.Source = source;
-                    _player.Play();
-                    StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "") + " via " + (stream.Source ?? "?") + ".";
+                    PopulateQualityCombo(selected);
+                    PlayStream(selected, false);
                 }
                 else
                 {
-                    StatusText.Text = "Não consegui resolver um stream direto compatível com W10M. " + (string.IsNullOrWhiteSpace(dbg) ? "" : "Debug: " + dbg);
+                    StatusText.Text = "Não consegui resolver um stream direto compatível com W10M. " + (string.IsNullOrWhiteSpace(StreamResolverService.LastDebug) ? "" : "Debug: " + StreamResolverService.LastDebug);
                 }
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Erro ao resolver stream: " + ex.Message + " " + StreamResolverService.LastDebug;
             }
+        }
+
+        private void PopulateQualityCombo(ResolvedStream selected)
+        {
+            _suppressQualityChange = true;
+            try
+            {
+                var list = _streams
+                    .Where(s => !s.IsAudioOnly)
+                    .GroupBy(s => (s.QualityLabel ?? "") + "|" + (s.Source ?? "") + "|" + s.Height)
+                    .Select(g => g.First())
+                    .OrderByDescending(s => s.Height)
+                    .ThenByDescending(s => s.MimeType != null && s.MimeType.IndexOf("mp4", StringComparison.OrdinalIgnoreCase) >= 0)
+                    .ToList();
+                if (list.Count == 0) list = _streams.ToList();
+
+                QualityCombo.ItemsSource = list;
+                var idx = list.FindIndex(s => s.Url == selected.Url);
+                QualityCombo.SelectedIndex = idx >= 0 ? idx : 0;
+                QualityCombo.IsEnabled = list.Count > 1;
+            }
+            finally
+            {
+                _suppressQualityChange = false;
+            }
+        }
+
+        private void PlayStream(ResolvedStream stream, bool keepPosition)
+        {
+            if (stream == null || string.IsNullOrWhiteSpace(stream.Url)) return;
+            EnsurePlayer();
+
+            var pos = TimeSpan.Zero;
+            try { if (keepPosition && _player.PlaybackSession != null) pos = _player.PlaybackSession.Position; } catch { }
+
+            var source = MediaSource.CreateFromUri(new Uri(stream.Url));
+            _player.Source = source;
+            if (keepPosition && pos.TotalSeconds > 1)
+            {
+                try { _player.PlaybackSession.Position = pos; } catch { }
+            }
+            _player.Play();
+            StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "Auto") + " via " + (stream.Source ?? "?") + ".";
         }
 
         private void EnsurePlayer()
@@ -75,8 +123,16 @@ namespace LumiaYT.Pages
         {
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                StatusText.Text = "Falha na reprodução (" + args.Error + "). Tente Abrir no navegador.";
+                StatusText.Text = "Falha na reprodução (" + args.Error + "). Tente outra qualidade ou Abrir no navegador.";
             });
+        }
+
+        private void QualityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressQualityChange) return;
+            var stream = QualityCombo.SelectedItem as ResolvedStream;
+            if (stream == null) return;
+            PlayStream(stream, true);
         }
 
         private async void OpenBrowser_Click(object sender, RoutedEventArgs e)
