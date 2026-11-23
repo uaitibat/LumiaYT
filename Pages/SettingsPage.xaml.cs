@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using LumiaYT.Models;
 using LumiaYT.Services;
+using Windows.Storage.Pickers;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -19,12 +20,14 @@ namespace LumiaYT.Pages
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            var autoMsg = await SettingsService.TryAutoImportAsync();
             _settings = await SettingsService.GetAsync();
             ApiKeyBox.Text = _settings.YouTubeApiKey ?? "";
             ClientIdBox.Text = _settings.GoogleClientId ?? "";
             ClientSecretBox.Password = _settings.GoogleClientSecret ?? "";
             RedirectUriText.Text = "Redirect URI (WAB): " + AuthService.GetRedirectUri();
             UpdateAuthStatus();
+            if (!string.IsNullOrWhiteSpace(autoMsg)) StatusText.Text = autoMsg;
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -54,6 +57,34 @@ namespace LumiaYT.Pages
             await SaveSettingsAsync();
         }
 
+        private async void ImportFile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new FileOpenPicker();
+                picker.ViewMode = PickerViewMode.List;
+                picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+                picker.FileTypeFilter.Add(".txt");
+                picker.FileTypeFilter.Add(".json");
+
+                var file = await picker.PickSingleFileAsync();
+                if (file == null) return;
+
+                StatusText.Text = "Importando...";
+                var msg = await SettingsService.ImportFromFileAsync(file);
+                _settings = await SettingsService.GetAsync();
+                ApiKeyBox.Text = _settings.YouTubeApiKey ?? "";
+                ClientIdBox.Text = _settings.GoogleClientId ?? "";
+                ClientSecretBox.Password = _settings.GoogleClientSecret ?? "";
+                UpdateAuthStatus();
+                StatusText.Text = msg;
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Falha ao importar: " + ex.Message;
+            }
+        }
+
         private async void WebViewLogin_Click(object sender, RoutedEventArgs e)
         {
             CancelDeviceFlow();
@@ -76,12 +107,6 @@ namespace LumiaYT.Pages
         {
             CancelDeviceFlow();
             await SaveSettingsAsync();
-
-            if (string.IsNullOrWhiteSpace(_settings.GoogleClientId))
-            {
-                StatusText.Text = "Preencha o Client ID antes.";
-                return;
-            }
 
             DeviceCodeButton.IsEnabled = false;
             StatusText.Text = "Gerando código de login...";

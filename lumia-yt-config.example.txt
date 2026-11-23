@@ -1,0 +1,7 @@
+# LumiaYT - config exemplo
+# Preencha e importe em Configurações > "Importar arquivo..."
+# Ou renomeie para lumia-yt-config.txt e copie para a pasta LocalState do app.
+
+YouTubeApiKey=COLE_SUA_API_KEY_AQUI
+GoogleClientId=COLE_SEU_CLIENT_ID_AQUI.apps.googleusercontent.com
+GoogleClientSecret=COLE_SEU_CLIENT_SECRET_AQUI
