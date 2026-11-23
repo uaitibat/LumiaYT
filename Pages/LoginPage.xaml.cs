@@ -8,7 +8,7 @@ namespace LumiaYT.Pages
 {
     public sealed partial class LoginPage : Page
     {
-        private string _redirectUri = "http://localhost";
+        private string _redirectUri = AuthService.DefaultWebRedirectUri;
         private bool _handled;
 
         public LoginPage() { InitializeComponent(); }
@@ -18,16 +18,10 @@ namespace LumiaYT.Pages
             base.OnNavigatedTo(e);
             _handled = false;
             var settings = await SettingsService.GetAsync();
-            if (string.IsNullOrWhiteSpace(settings.GoogleClientId))
-            {
-                StatusText.Text = "Client ID não configurado.";
-                return;
-            }
+            var clientId = AuthService.GetEffectiveClientId(settings);
+            _redirectUri = AuthService.GetEffectiveWebRedirectUri(settings);
 
-            // Use a web redirect URI that can be intercepted in WebView.
-            // Must be registered in Google Cloud OAuth client (Web application type).
-            _redirectUri = "http://localhost";
-            var authUrl = AuthService.BuildWebAuthUrl(settings.GoogleClientId, _redirectUri);
+            var authUrl = AuthService.BuildWebAuthUrl(clientId, _redirectUri);
             StatusText.Text = "Carregando login Google...";
             AuthWebView.Navigate(new Uri(authUrl));
         }

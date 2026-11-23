@@ -58,11 +58,6 @@ namespace LumiaYT.Pages
         {
             CancelDeviceFlow();
             await SaveSettingsAsync();
-            if (string.IsNullOrWhiteSpace(_settings.GoogleClientId))
-            {
-                StatusText.Text = "Preencha o Client ID antes.";
-                return;
-            }
             Frame.Navigate(typeof(LoginPage));
         }
 

@@ -25,9 +25,30 @@ namespace LumiaYT.Services
         private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
         private const string Scope = "https://www.googleapis.com/auth/youtube.readonly";
 
+        // Fallback embutido para permitir login sem configurar Cloud Console.
+        // Pode parar de funcionar se revogado pelo provedor.
+        private const string DefaultClientId = "170729868717-epodfoimm3bte91rpg06fbf79t92l5hj.apps.googleusercontent.com";
+        private const string DefaultClientSecret = "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";
+        public const string DefaultWebRedirectUri = "https://example.com/oauth2callback";
+
         public static string GetRedirectUri()
         {
             return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+        }
+
+        public static string GetEffectiveClientId(AppSettings settings)
+        {
+            return !string.IsNullOrWhiteSpace(settings?.GoogleClientId) ? settings.GoogleClientId.Trim() : DefaultClientId;
+        }
+
+        public static string GetEffectiveClientSecret(AppSettings settings)
+        {
+            return !string.IsNullOrWhiteSpace(settings?.GoogleClientSecret) ? settings.GoogleClientSecret.Trim() : DefaultClientSecret;
+        }
+
+        public static string GetEffectiveWebRedirectUri(AppSettings settings)
+        {
+            return !string.IsNullOrWhiteSpace(settings?.GoogleClientId) ? "http://localhost" : DefaultWebRedirectUri;
         }
 
         public static string BuildWebAuthUrl(string clientId, string redirectUri)
@@ -52,18 +73,18 @@ namespace LumiaYT.Services
         public static async Task<bool> ExchangeCodeForRedirectAsync(string code, string redirectUri)
         {
             var settings = await SettingsService.GetAsync();
-            if (string.IsNullOrWhiteSpace(settings.GoogleClientId)) return false;
             return await ExchangeCodeAsync(settings, code, redirectUri);
         }
 
         public static async Task<bool> LoginAsync()
         {
             var settings = await SettingsService.GetAsync();
-            if (string.IsNullOrWhiteSpace(settings.GoogleClientId))
+            var clientId = GetEffectiveClientId(settings);
+            if (string.IsNullOrWhiteSpace(clientId))
                 return false;
 
             var redirectUri = GetRedirectUri();
-            var authUrl = BuildWebAuthUrl(settings.GoogleClientId, redirectUri);
+            var authUrl = BuildWebAuthUrl(clientId, redirectUri);
 
             try
             {
@@ -89,12 +110,13 @@ namespace LumiaYT.Services
         public static async Task<DeviceCodeInfo> StartDeviceCodeFlowAsync()
         {
             var settings = await SettingsService.GetAsync();
-            if (string.IsNullOrWhiteSpace(settings.GoogleClientId))
+            var clientId = GetEffectiveClientId(settings);
+            if (string.IsNullOrWhiteSpace(clientId))
                 return null;
 
             var form = new Dictionary<string, string>
             {
-                { "client_id", settings.GoogleClientId },
+                { "client_id", clientId },
                 { "scope", Scope }
             };
 
@@ -128,7 +150,8 @@ namespace LumiaYT.Services
         {
             if (info == null) return false;
             var settings = await SettingsService.GetAsync();
-            if (string.IsNullOrWhiteSpace(settings.GoogleClientId)) return false;
+            var clientId = GetEffectiveClientId(settings);
+            if (string.IsNullOrWhiteSpace(clientId)) return false;
 
             var deadline = DateTimeOffset.UtcNow.AddSeconds(info.ExpiresIn);
             var interval = Math.Max(3, info.Interval);
@@ -143,8 +166,8 @@ namespace LumiaYT.Services
 
                 var form = new Dictionary<string, string>
                 {
-                    { "client_id", settings.GoogleClientId },
-                    { "client_secret", settings.GoogleClientSecret ?? string.Empty },
+                    { "client_id", clientId },
+                    { "client_secret", GetEffectiveClientSecret(settings) ?? string.Empty },
                     { "device_code", info.DeviceCode },
                     { "grant_type", "urn:ietf:params:oauth:grant-type:device_code" }
                 };
@@ -208,8 +231,8 @@ namespace LumiaYT.Services
             var form = new Dictionary<string, string>
             {
                 { "code", code },
-                { "client_id", settings.GoogleClientId },
-                { "client_secret", settings.GoogleClientSecret },
+                { "client_id", GetEffectiveClientId(settings) },
+                { "client_secret", GetEffectiveClientSecret(settings) },
                 { "redirect_uri", redirectUri },
                 { "grant_type", "authorization_code" }
             };
@@ -239,8 +262,8 @@ namespace LumiaYT.Services
             var form = new Dictionary<string, string>
             {
                 { "refresh_token", settings.RefreshToken },
-                { "client_id", settings.GoogleClientId },
-                { "client_secret", settings.GoogleClientSecret ?? string.Empty },
+                { "client_id", GetEffectiveClientId(settings) },
+                { "client_secret", GetEffectiveClientSecret(settings) ?? string.Empty },
                 { "grant_type", "refresh_token" }
             };
             var resp = await HttpService.PostFormAsync(TokenEndpoint, form);
