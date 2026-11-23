@@ -30,7 +30,7 @@ namespace LumiaYT.Pages
             AuthStatusText.Text = logged ? "Login: ativo (token salvo)" : "Login: não conectado";
         }
 
-        private async void Save_Click(object sender, RoutedEventArgs e)
+        private async System.Threading.Tasks.Task SaveSettingsAsync()
         {
             _settings.YouTubeApiKey = (ApiKeyBox.Text ?? "").Trim();
             _settings.GoogleClientId = (ClientIdBox.Text ?? "").Trim();
@@ -40,9 +40,14 @@ namespace LumiaYT.Pages
             UpdateAuthStatus();
         }
 
+        private async void Save_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveSettingsAsync();
+        }
+
         private async void Login_Click(object sender, RoutedEventArgs e)
         {
-            await Save_Click(sender, e);
+            await SaveSettingsAsync();
             StatusText.Text = "Abrindo login Google...";
             var ok = await AuthService.LoginAsync();
             _settings = await SettingsService.GetAsync();
