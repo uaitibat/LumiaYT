@@ -64,7 +64,7 @@ namespace LumiaYT.Pages
             try
             {
                 var list = _streams
-                    .Where(s => !s.IsAudioOnly)
+                    .Where(s => !s.IsAudioOnly && !s.IsVideoOnly)
                     .GroupBy(s => (s.QualityLabel ?? "") + "|" + (s.Source ?? "") + "|" + s.Height)
                     .Select(g => g.First())
                     .OrderByDescending(s => s.Height)

@@ -14,6 +14,7 @@ namespace LumiaYT.Services
         public string Url { get; set; } = string.Empty;
         public string QualityLabel { get; set; } = string.Empty;
         public bool IsAudioOnly { get; set; }
+        public bool IsVideoOnly { get; set; }
         public string MimeType { get; set; } = string.Empty;
         public string Source { get; set; } = string.Empty;
         public int Itag { get; set; }
@@ -83,15 +84,17 @@ namespace LumiaYT.Services
         public static ResolvedStream PickDefault(List<ResolvedStream> streams)
         {
             if (streams == null || streams.Count == 0) return null;
-            return streams.Where(c => !c.IsAudioOnly).OrderByDescending(c => Score(c, true)).FirstOrDefault()
-                ?? streams.OrderByDescending(c => Score(c, true)).FirstOrDefault();
+            var playable = streams.Where(c => !c.IsAudioOnly && !c.IsVideoOnly).ToList();
+            if (playable.Count == 0) playable = streams.Where(c => !c.IsAudioOnly).ToList();
+            if (playable.Count == 0) playable = streams.ToList();
+            return playable.OrderByDescending(c => Score(c, true)).FirstOrDefault();
         }
 
         private static List<ResolvedStream> OrderCandidates(List<ResolvedStream> candidates)
         {
             return candidates
                 .Where(c => c != null)
-                .OrderBy(c => c.IsAudioOnly ? 1 : 0)
+                .OrderBy(c => c.IsAudioOnly ? 2 : (c.IsVideoOnly ? 1 : 0))
                 .ThenByDescending(c => c.Height)
                 .ThenByDescending(c => Score(c, false))
                 .ToList();
@@ -221,6 +224,8 @@ namespace LumiaYT.Services
                 var quality = f.Value<string>("qualityLabel") ?? f.Value<string>("quality") ?? "";
                 var audioQuality = f.Value<string>("audioQuality");
                 bool audioOnly = string.IsNullOrWhiteSpace(quality) && !string.IsNullOrWhiteSpace(audioQuality);
+                bool hasVideo = mime.IndexOf("video", StringComparison.OrdinalIgnoreCase) >= 0 || !string.IsNullOrWhiteSpace(quality);
+                bool videoOnly = hasVideo && !audioOnly && (mime.IndexOf("audio", StringComparison.OrdinalIgnoreCase) < 0 && !string.IsNullOrWhiteSpace(quality));
                 int itag = f.Value<int?>("itag") ?? 0;
                 int height = f.Value<int?>("height") ?? ParseHeight(quality);
                 candidates.Add(new ResolvedStream
@@ -228,6 +233,7 @@ namespace LumiaYT.Services
                     Url = url,
                     QualityLabel = quality,
                     IsAudioOnly = audioOnly,
+                    IsVideoOnly = videoOnly,
                     MimeType = mime,
                     Source = client.Name,
                     Itag = itag,
@@ -439,11 +445,13 @@ namespace LumiaYT.Services
                     if (string.IsNullOrWhiteSpace(url)) continue;
                     var mime = s.Value<string>("mimeType") ?? s.Value<string>("format") ?? "";
                     var quality = s.Value<string>("quality") ?? "";
+                    bool videoOnly = s.Value<bool?>("videoOnly") ?? false;
                     list.Add(new ResolvedStream
                     {
                         Url = url,
                         QualityLabel = quality,
                         IsAudioOnly = audioOnly,
+                        IsVideoOnly = videoOnly && !audioOnly,
                         MimeType = mime,
                         Height = ParseHeight(quality)
                     });
@@ -481,6 +489,7 @@ namespace LumiaYT.Services
             }
 
             if (q.Contains("audio")) score -= 200;
+            if (c.IsVideoOnly) score -= 500;
             return score;
         }
 
