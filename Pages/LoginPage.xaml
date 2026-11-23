@@ -1,0 +1,27 @@
+<Page
+    x:Class="LumiaYT.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{ThemeResource PageBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="12,8,12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Style="{StaticResource IconButtonStyle}" FontFamily="Segoe MDL2 Assets" Content="&#xE72B;" Click="Back_Click" />
+            <TextBlock Grid.Column="1" Text="Login Google" Style="{StaticResource PageHeaderTextStyle}" VerticalAlignment="Center" Margin="4,0,0,0" />
+        </Grid>
+
+        <WebView x:Name="AuthWebView" Grid.Row="1" NavigationStarting="AuthWebView_NavigationStarting" NavigationCompleted="AuthWebView_NavigationCompleted" />
+
+        <TextBlock x:Name="StatusText" Grid.Row="2" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="12,6,12,8" />
+    </Grid>
+</Page>

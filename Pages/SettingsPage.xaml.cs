@@ -54,6 +54,18 @@ namespace LumiaYT.Pages
             await SaveSettingsAsync();
         }
 
+        private async void WebViewLogin_Click(object sender, RoutedEventArgs e)
+        {
+            CancelDeviceFlow();
+            await SaveSettingsAsync();
+            if (string.IsNullOrWhiteSpace(_settings.GoogleClientId))
+            {
+                StatusText.Text = "Preencha o Client ID antes.";
+                return;
+            }
+            Frame.Navigate(typeof(LoginPage));
+        }
+
         private async void Login_Click(object sender, RoutedEventArgs e)
         {
             CancelDeviceFlow();
@@ -62,7 +74,7 @@ namespace LumiaYT.Pages
             var ok = await AuthService.LoginAsync();
             _settings = await SettingsService.GetAsync();
             UpdateAuthStatus();
-            StatusText.Text = ok ? "Login concluído." : "Falha no login WAB. No W10M, use 'Login por código'.";
+            StatusText.Text = ok ? "Login concluído." : "Falha no login WAB. No W10M, use 'Login por código' ou 'Login (WebView)'.";
         }
 
         private async void DeviceCodeLogin_Click(object sender, RoutedEventArgs e)

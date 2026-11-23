@@ -30,6 +30,32 @@ namespace LumiaYT.Services
             return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
         }
 
+        public static string BuildWebAuthUrl(string clientId, string redirectUri)
+        {
+            return AuthEndpoint
+                + "?client_id=" + Uri.EscapeDataString(clientId)
+                + "&redirect_uri=" + Uri.EscapeDataString(redirectUri)
+                + "&response_type=code"
+                + "&scope=" + Uri.EscapeDataString(Scope)
+                + "&access_type=offline"
+                + "&prompt=select_account"
+                + "&include_granted_scopes=true";
+        }
+
+        public static string GetQueryParam(string query, string key)
+        {
+            var dict = ParseQuery(query);
+            string val;
+            return dict.TryGetValue(key, out val) ? val : string.Empty;
+        }
+
+        public static async Task<bool> ExchangeCodeForRedirectAsync(string code, string redirectUri)
+        {
+            var settings = await SettingsService.GetAsync();
+            if (string.IsNullOrWhiteSpace(settings.GoogleClientId)) return false;
+            return await ExchangeCodeAsync(settings, code, redirectUri);
+        }
+
         public static async Task<bool> LoginAsync()
         {
             var settings = await SettingsService.GetAsync();
@@ -37,13 +63,7 @@ namespace LumiaYT.Services
                 return false;
 
             var redirectUri = GetRedirectUri();
-            var authUrl = AuthEndpoint
-                + "?client_id=" + Uri.EscapeDataString(settings.GoogleClientId)
-                + "&redirect_uri=" + Uri.EscapeDataString(redirectUri)
-                + "&response_type=code"
-                + "&scope=" + Uri.EscapeDataString(Scope)
-                + "&access_type=offline"
-                + "&prompt=consent";
+            var authUrl = BuildWebAuthUrl(settings.GoogleClientId, redirectUri);
 
             try
             {
@@ -54,9 +74,8 @@ namespace LumiaYT.Services
                     return false;
 
                 var responseUri = new Uri(result.ResponseData);
-                var query = ParseQuery(responseUri.Query);
-                string code;
-                if (!query.TryGetValue("code", out code) || string.IsNullOrWhiteSpace(code))
+                var code = GetQueryParam(responseUri.Query, "code");
+                if (string.IsNullOrWhiteSpace(code))
                     return false;
 
                 return await ExchangeCodeAsync(settings, code, redirectUri);

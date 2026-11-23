@@ -40,9 +40,10 @@
                     <TextBlock x:Name="AuthStatusText" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" Margin="0,0,0,10" />
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Salvar" Style="{StaticResource MetroButtonStyle}" Background="{ThemeResource AccentBrush}" Foreground="{ThemeResource TextOnAccentBrush}" Click="Save_Click" Margin="0,0,8,0" />
-                        <Button Content="Login WAB" Style="{StaticResource MetroButtonStyle}" Click="Login_Click" Margin="0,0,8,0" />
+                        <Button Content="Login (WebView)" Style="{StaticResource MetroButtonStyle}" Click="WebViewLogin_Click" Margin="0,0,8,0" />
                         <Button Content="Logout" Style="{StaticResource MetroButtonStyle}" Click="Logout_Click" />
                     </StackPanel>
+                    <Button Content="Login WAB (sistema)" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="Login_Click" Margin="0,0,0,8" />
                     <Button x:Name="DeviceCodeButton" Content="Login por código (recomendado W10M)" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="DeviceCodeLogin_Click" />
                     <Border x:Name="DeviceCodePanel" Visibility="Collapsed" Background="{ThemeResource SurfaceAltBrush}" CornerRadius="3" Padding="10" Margin="0,10,0,0">
                         <StackPanel>
