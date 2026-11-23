@@ -262,20 +262,12 @@ namespace LumiaYT.Services
                 {
                     var sn = item["snippet"];
                     var cd = item["contentDetails"];
-                    var vid = cd?["upload"]?.Value<string>("videoId")
-                              ?? cd?["recommendation"]?.Value<string>("resourceId") != null ? cd?["recommendation"]?["resourceId"]?.Value<string>("videoId") : null
-                              ?? cd?["like"]?.Value<string>("resourceId") != null ? cd?["like"]?["resourceId"]?.Value<string>("videoId") : null
-                              ?? cd?["playlistItem"]?.Value<string>("resourceId") != null ? cd?["playlistItem"]?["resourceId"]?.Value<string>("videoId") : null
-                              ?? cd?["social"]?.Value<string>("resourceId") != null ? cd?["social"]?["resourceId"]?.Value<string>("videoId") : null
-                              ?? cd?["bulletin"]?.Value<string>("resourceId") != null ? cd?["bulletin"]?["resourceId"]?.Value<string>("videoId") : null;
-
-                    // Simpler extraction: try common paths
-                    if (string.IsNullOrWhiteSpace(vid))
-                        vid = cd?.SelectToken("upload.videoId")?.ToString()
+                    var vid = cd?.SelectToken("upload.videoId")?.ToString()
                               ?? cd?.SelectToken("recommendation.resourceId.videoId")?.ToString()
                               ?? cd?.SelectToken("like.resourceId.videoId")?.ToString()
                               ?? cd?.SelectToken("playlistItem.resourceId.videoId")?.ToString()
-                              ?? cd?.SelectToken("social.resourceId.videoId")?.ToString();
+                              ?? cd?.SelectToken("social.resourceId.videoId")?.ToString()
+                              ?? cd?.SelectToken("bulletin.resourceId.videoId")?.ToString();
 
                     if (string.IsNullOrWhiteSpace(vid)) continue;
                     result.Items.Add(new VideoItem
