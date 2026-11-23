@@ -228,10 +228,13 @@ namespace LumiaYT.Pages
             else await LoadRecommendedAsync(true);
         }
 
-        private void VideoList_ItemClick(object sender, ItemClickEventArgs e)
+        private async void VideoList_ItemClick(object sender, ItemClickEventArgs e)
         {
             if (e.ClickedItem is VideoItem item && !string.IsNullOrWhiteSpace(item.Id))
+            {
+                await LocalLibraryService.AddToHistoryAsync(item);
                 Frame.Navigate(typeof(PlayerPage), item);
+            }
         }
 
         private async void SubsChannelsList_ItemClick(object sender, ItemClickEventArgs e)

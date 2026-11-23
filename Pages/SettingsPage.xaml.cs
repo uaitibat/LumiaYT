@@ -71,15 +71,32 @@ namespace LumiaYT.Pages
             {
                 var likes = await YouTubeApiService.GetLikedVideosAsync(12);
                 LikedList.ItemsSource = likes.Items;
+            }
+            catch { }
 
+            try
+            {
                 var watchLater = await YouTubeApiService.GetMyChannelSectionAsync("watchLater", 12);
                 WatchLaterList.ItemsSource = watchLater.Items;
+            }
+            catch { }
 
-                // "History" is not directly exposed by Data API v3 for most apps; try activities as fallback.
-                var history = await YouTubeApiService.GetMyActivitiesAsync(12);
+            try
+            {
+                var history = await YouTubeApiService.GetMyChannelSectionAsync("history", 12);
                 HistoryList.ItemsSource = history.Items;
             }
             catch { }
+
+            try
+            {
+                var playlists = await YouTubeApiService.GetMyPlaylistsAsync(12);
+                PlaylistsList.ItemsSource = playlists;
+                PlaylistsHint.Text = playlists.Count == 0 ? "Nenhuma playlist encontrada." : "";
+            }
+            catch { PlaylistsHint.Text = "Não foi possível carregar playlists."; }
+
+            ClipsHint.Text = "Clipes não disponíveis via YouTube Data API v3.";
         }
 
         private void SetAvatar(string url)
@@ -193,10 +210,21 @@ namespace LumiaYT.Pages
             await RefreshUiAsync();
         }
 
-        private void Video_ItemClick(object sender, ItemClickEventArgs e)
+        private async void Video_ItemClick(object sender, ItemClickEventArgs e)
         {
             if (e.ClickedItem is VideoItem item && !string.IsNullOrWhiteSpace(item.Id))
+            {
+                await LocalLibraryService.AddToHistoryAsync(item);
                 Frame.Navigate(typeof(PlayerPage), item);
+            }
+        }
+
+        private void Playlist_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is VideoItem item)
+            {
+                StatusText.Text = "Playlist: " + item.Title;
+            }
         }
 
         private void Back_Click(object sender, RoutedEventArgs e) { if (Frame.CanGoBack) Frame.GoBack(); }

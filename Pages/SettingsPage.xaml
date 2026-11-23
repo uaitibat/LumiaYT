@@ -93,7 +93,21 @@
                 </ListView>
 
                 <TextBlock Text="Playlists" Style="{StaticResource SubheaderTextStyle}" Margin="12,8,12,6" />
-                <TextBlock x:Name="PlaylistsHint" Text="Playlists da conta disponíveis em breve." Style="{StaticResource MetaTextStyle}" Margin="12,0,12,6" />
+                <ListView x:Name="PlaylistsList" Height="170" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollMode="Disabled" IsItemClickEnabled="True" ItemClick="Playlist_ItemClick" SelectionMode="None">
+                    <ListView.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListView.ItemsPanel>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="150" Margin="0,0,8,0" Background="{ThemeResource SurfaceBrush}" CornerRadius="3">
+                                <StackPanel>
+                                    <Border Height="84" Background="{ThemeResource SurfaceAltBrush}" CornerRadius="3,3,0,0"><Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill"/></Border>
+                                    <TextBlock Text="{Binding Title}" Style="{StaticResource CardTitleTextStyle}" Margin="8,6,8,0" MaxLines="2" />
+                                    <TextBlock Text="{Binding ChannelTitle}" Style="{StaticResource MetaTextStyle}" Margin="8,2,8,8" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <TextBlock x:Name="PlaylistsHint" Text="" Style="{StaticResource MetaTextStyle}" Margin="12,0,12,6" />
 
                 <TextBlock Text="Assistir mais tarde" Style="{StaticResource SubheaderTextStyle}" Margin="12,8,12,6" />
                 <ListView x:Name="WatchLaterList" Height="170" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollMode="Disabled" IsItemClickEnabled="True" ItemClick="Video_ItemClick" SelectionMode="None">

@@ -62,15 +62,42 @@ namespace LumiaYT.Services
 
         public static async Task<VideoFeedResult> GetRecommendedAsync(int maxResults = 20, string pageToken = "")
         {
-            // Official YouTube Data API has no personalized home feed.
-            // Use activities + liked videos + subscriptions as a personal signal fallback.
+            // Official Data API v3 has no "For You" feed.
+            // Approximate recommendations: recent uploads from subscribed channels (personalized)
+            // mixed with popular content, avoiding duplicates.
             var token = await AuthService.GetValidAccessTokenAsync();
             if (!string.IsNullOrWhiteSpace(token))
             {
-                var mine = await GetMyActivitiesAsync(maxResults, pageToken);
-                if (mine.Items.Count > 0) return mine;
+                if (string.IsNullOrWhiteSpace(pageToken))
+                {
+                    var subsFeed = await GetSubscriptionFeedAsync(maxResults, "");
+                    if (subsFeed.Items.Count > 0)
+                    {
+                        subsFeed.NextPageToken = "subs:20";
+                        return subsFeed;
+                    }
+                }
+                else if (pageToken.StartsWith("subs:"))
+                {
+                    int offset = 0; int.TryParse(pageToken.Substring(5), out offset);
+                    var subsFeed = await GetSubscriptionFeedAsync(maxResults, offset.ToString());
+                    if (subsFeed.Items.Count > 0)
+                    {
+                        subsFeed.NextPageToken = string.IsNullOrWhiteSpace(subsFeed.NextPageToken) ? "trend:" : "subs:" + (offset + maxResults);
+                        return subsFeed;
+                    }
+                    pageToken = "trend:";
+                }
+
+                if (pageToken.StartsWith("trend:"))
+                {
+                    var realToken = pageToken.Length > 6 ? pageToken.Substring(6) : "";
+                    var trend = await GetTrendingAsync("BR", maxResults, realToken);
+                    trend.NextPageToken = string.IsNullOrWhiteSpace(trend.NextPageToken) ? "" : "trend:" + trend.NextPageToken;
+                    return trend;
+                }
             }
-            // Fallback: trending
+
             return await GetTrendingAsync("BR", maxResults, pageToken);
         }
 
@@ -186,9 +213,15 @@ namespace LumiaYT.Services
 
         public static async Task<VideoFeedResult> GetMyChannelSectionAsync(string kind, int maxResults = 20, string pageToken = "")
         {
-            // kind: history (special), likes, watchLater - resolved via channels contentDetails
             var token = await AuthService.GetValidAccessTokenAsync();
             if (string.IsNullOrWhiteSpace(token)) return new VideoFeedResult();
+
+            // history: YouTube Data API v3 does not expose personal watch history.
+            if (kind == "history")
+            {
+                var local = await LocalLibraryService.GetHistoryAsync(maxResults);
+                return new VideoFeedResult { Items = local };
+            }
 
             var channelJson = await HttpService.GetStringWithAuthAsync(BaseUrl + "/channels?part=contentDetails&mine=true", token);
             if (string.IsNullOrWhiteSpace(channelJson)) return new VideoFeedResult();
@@ -202,8 +235,21 @@ namespace LumiaYT.Services
                 if (kind == "likes") playlistId = related?.Value<string>("likes") ?? "";
                 else if (kind == "watchLater") playlistId = related?.Value<string>("watchLater") ?? "";
                 else if (kind == "uploads") playlistId = related?.Value<string>("uploads") ?? "";
-                if (string.IsNullOrWhiteSpace(playlistId)) return new VideoFeedResult();
-                return await GetPlaylistItemsAsync(playlistId, maxResults, pageToken);
+
+                if (!string.IsNullOrWhiteSpace(playlistId))
+                {
+                    var res = await GetPlaylistItemsAsync(playlistId, maxResults, pageToken);
+                    if (res.Items.Count > 0) return res;
+                }
+
+                // Fallback for watchLater when API playlist is unavailable/private in this context
+                if (kind == "watchLater")
+                {
+                    var local = await LocalLibraryService.GetWatchLaterAsync(maxResults);
+                    return new VideoFeedResult { Items = local };
+                }
+
+                return new VideoFeedResult();
             }
             catch { return new VideoFeedResult(); }
         }
@@ -211,6 +257,41 @@ namespace LumiaYT.Services
         public static async Task<VideoFeedResult> GetLikedVideosAsync(int maxResults = 20, string pageToken = "")
         {
             return await GetMyChannelSectionAsync("likes", maxResults, pageToken);
+        }
+
+        public static async Task<List<VideoItem>> GetMyPlaylistsAsync(int maxResults = 20)
+        {
+            var token = await AuthService.GetValidAccessTokenAsync();
+            var list = new List<VideoItem>();
+            if (string.IsNullOrWhiteSpace(token)) return list;
+            var url = BaseUrl + "/playlists?part=snippet,contentDetails&mine=true&maxResults=" + maxResults;
+            var json = await HttpService.GetStringWithAuthAsync(url, token);
+            if (string.IsNullOrWhiteSpace(json)) return list;
+            try
+            {
+                var obj = JObject.Parse(json);
+                var items = obj["items"] as JArray;
+                if (items == null) return list;
+                foreach (var item in items)
+                {
+                    var sn = item["snippet"];
+                    var id = item.Value<string>("id") ?? "";
+                    if (string.IsNullOrWhiteSpace(id)) continue;
+                    var rawDate = sn?.Value<string>("publishedAt") ?? "";
+                    list.Add(new VideoItem
+                    {
+                        Id = id,
+                        Title = sn?.Value<string>("title") ?? "",
+                        ChannelTitle = (item["contentDetails"]?.Value<int?>("itemCount")?.ToString() ?? "0") + " vídeos",
+                        ThumbnailUrl = sn?["thumbnails"]?["medium"]?.Value<string>("url") ?? sn?["thumbnails"]?["default"]?.Value<string>("url") ?? "",
+                        PublishedAtRaw = rawDate,
+                        PublishedAt = FormatDate(rawDate),
+                        Kind = "playlist"
+                    });
+                }
+            }
+            catch { }
+            return list;
         }
 
         private static VideoFeedResult ParseVideoFeed(string json, bool isVideoList)
@@ -229,6 +310,7 @@ namespace LumiaYT.Services
                     string id = isVideoList ? (item.Value<string>("id") ?? "") : (item["id"]?.Value<string>("videoId") ?? "");
                     if (string.IsNullOrWhiteSpace(id)) continue;
                     var live = sn?.Value<string>("liveBroadcastContent");
+                    var rawDate = sn?.Value<string>("publishedAt") ?? "";
                     result.Items.Add(new VideoItem
                     {
                         Id = id,
@@ -236,7 +318,8 @@ namespace LumiaYT.Services
                         ChannelTitle = sn?.Value<string>("channelTitle") ?? "",
                         ChannelId = sn?.Value<string>("channelId") ?? "",
                         Description = sn?.Value<string>("description") ?? "",
-                        PublishedAt = sn?.Value<string>("publishedAt") ?? "",
+                        PublishedAtRaw = rawDate,
+                        PublishedAt = FormatDate(rawDate),
                         ThumbnailUrl = sn?["thumbnails"]?["medium"]?.Value<string>("url") ?? sn?["thumbnails"]?["default"]?.Value<string>("url") ?? "",
                         IsLive = string.Equals(live, "live", StringComparison.OrdinalIgnoreCase),
                         ViewCount = item["statistics"]?.Value<string>("viewCount") ?? "",
@@ -270,6 +353,7 @@ namespace LumiaYT.Services
                               ?? cd?.SelectToken("bulletin.resourceId.videoId")?.ToString();
 
                     if (string.IsNullOrWhiteSpace(vid)) continue;
+                    var rawDate = sn?.Value<string>("publishedAt") ?? "";
                     result.Items.Add(new VideoItem
                     {
                         Id = vid,
@@ -277,7 +361,8 @@ namespace LumiaYT.Services
                         ChannelTitle = sn?.Value<string>("channelTitle") ?? "",
                         ChannelId = sn?.Value<string>("channelId") ?? "",
                         Description = sn?.Value<string>("description") ?? "",
-                        PublishedAt = sn?.Value<string>("publishedAt") ?? "",
+                        PublishedAtRaw = rawDate,
+                        PublishedAt = FormatDate(rawDate),
                         ThumbnailUrl = sn?["thumbnails"]?["medium"]?.Value<string>("url") ?? sn?["thumbnails"]?["default"]?.Value<string>("url") ?? "",
                         Kind = "video"
                     });
@@ -302,6 +387,7 @@ namespace LumiaYT.Services
                     var sn = item["snippet"];
                     var vid = sn?["resourceId"]?.Value<string>("videoId") ?? item["contentDetails"]?.Value<string>("videoId") ?? "";
                     if (string.IsNullOrWhiteSpace(vid)) continue;
+                    var rawDate = sn?.Value<string>("publishedAt") ?? "";
                     result.Items.Add(new VideoItem
                     {
                         Id = vid,
@@ -309,7 +395,8 @@ namespace LumiaYT.Services
                         ChannelTitle = sn?.Value<string>("videoOwnerChannelTitle") ?? sn?.Value<string>("channelTitle") ?? "",
                         ChannelId = sn?.Value<string>("videoOwnerChannelId") ?? "",
                         Description = sn?.Value<string>("description") ?? "",
-                        PublishedAt = sn?.Value<string>("publishedAt") ?? "",
+                        PublishedAtRaw = rawDate,
+                        PublishedAt = FormatDate(rawDate),
                         ThumbnailUrl = sn?["thumbnails"]?["medium"]?.Value<string>("url") ?? sn?["thumbnails"]?["default"]?.Value<string>("url") ?? "",
                         Kind = "video"
                     });
@@ -323,6 +410,20 @@ namespace LumiaYT.Services
         {
             if (DateTimeOffset.TryParse(value, out var dt)) return dt;
             return DateTimeOffset.MinValue;
+        }
+
+        private static string FormatDate(string value)
+        {
+            if (!DateTimeOffset.TryParse(value, out var dt)) return "";
+            var local = dt.ToLocalTime();
+            var now = DateTimeOffset.Now;
+            var diff = now - local;
+            if (diff.TotalDays < 1) return "Hoje";
+            if (diff.TotalDays < 2) return "Ontem";
+            if (diff.TotalDays < 7) return ((int)diff.TotalDays) + " dias atrás";
+            if (diff.TotalDays < 30) return Math.Max(1, (int)(diff.TotalDays / 7)) + " sem atrás";
+            if (diff.TotalDays < 365) return Math.Max(1, (int)(diff.TotalDays / 30)) + " mês(es) atrás";
+            return local.ToString("dd/MM/yyyy");
         }
     }
 }
