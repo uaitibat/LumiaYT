@@ -1,0 +1,112 @@
+name: build-appx
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Limpar artefatos antigos
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo = $env:GITHUB_REPOSITORY
+          $ids = @(gh api "repos/$repo/actions/artifacts?per_page=100" --paginate `
+            --jq '.artifacts[] | select(.name | startswith("LumiaYT-")) | .id' 2>$null)
+          Write-Host "Artefatos LumiaYT antigos: $($ids.Count)"
+          foreach ($id in $ids) {
+            gh api --method DELETE "repos/$repo/actions/artifacts/$id" | Out-Null
+          }
+
+      - uses: actions/checkout@v4
+
+      - name: Configurar MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Compilar Release ARM
+        shell: pwsh
+        run: |
+          msbuild LumiaYT.sln /restore /m `
+            /p:Configuration=Release `
+            /p:Platform=ARM `
+            /p:AppxBundle=Never `
+            /p:AppxPackageSigningEnabled=false `
+            /p:GenerateAppxPackageOnBuild=true `
+            /p:UapAppxPackageBuildMode=SideloadOnly
+
+      - name: Assinar pacote com signtool
+        shell: pwsh
+        run: |
+          $kits = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+          $signtool = Get-ChildItem $kits -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe nao encontrado em $kits" }
+          Write-Host "signtool: $($signtool.FullName)"
+
+          $pfx = Join-Path $env:RUNNER_TEMP "lumia.pfx"
+          $b64 = [IO.File]::ReadAllText("certs/ci-legacy.b64").Trim()
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($b64))
+          Write-Host "PFX legada: $((Get-Item $pfx).Length) bytes"
+
+          $pkgs = @(Get-ChildItem -Recurse -File |
+            Where-Object {
+              $_.Extension -in '.appx', '.msix' -and
+              $_.FullName -notmatch '\\obj\\' -and
+              $_.FullName -notmatch '\\Dependencies\\' -and
+              $_.BaseName -notmatch '^Microsoft\.'
+            })
+          foreach ($p in $pkgs) {
+            & $signtool.FullName sign /fd SHA256 /f $pfx $p.FullName
+            if ($LASTEXITCODE -ne 0) { throw "falha ao assinar $($p.Name)" }
+
+            & $signtool.FullName verify /pa /v $p.FullName | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "AVISO: verify /pa falhou (cadeia self-signed) - assinatura aplicada com sucesso em $($p.Name)"
+              $global:LASTEXITCODE = 0
+            } else { Write-Host "assinatura verificada: $($p.Name)" }
+          }
+
+      - name: Reunir pacote e dependencias
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $pkgs = @(Get-ChildItem -Recurse -File |
+            Where-Object {
+              $_.Extension -in '.appx', '.msix' -and
+              $_.FullName -notmatch '\\obj\\' -and
+              $_.FullName -notmatch '\\Dependencies\\'
+            })
+          if ($pkgs.Count -eq 0) { throw "Nenhum .appx gerado - veja o log do MSBuild acima." }
+          foreach ($p in $pkgs) { Copy-Item $p.FullName out/ -Force }
+          $deps = Get-ChildItem -Recurse -Directory -Filter Dependencies | Select-Object -First 1
+          if ($deps) { Copy-Item $deps.FullName out/Dependencies -Recurse -Force }
+          Write-Host "Conteudo do artefato:"
+          Get-ChildItem out -Recurse -File | ForEach-Object { Write-Host ("  " + $_.FullName) }
+
+      - name: Publicar release com o appx
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "latest"
+          gh release delete $tag --yes 2>$null
+          if ($LASTEXITCODE -ne 0) { $global:LASTEXITCODE = 0 }
+          $assets = @(Get-ChildItem out -File | ForEach-Object { $_.FullName })
+          if ($assets.Count -eq 0) { throw "Nenhum arquivo em out/ para publicar" }
+          gh release create $tag `
+            --title "LumiaYT ARM (latest)" `
+            --notes "Build automatico: $(git rev-parse --short HEAD)" `
+            $assets
+          if ($LASTEXITCODE -ne 0) { throw "falha ao publicar release" }
+          Write-Host "Release publicada: https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"

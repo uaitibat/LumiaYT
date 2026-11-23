@@ -1,0 +1,28 @@
+# Build
+bin/
+obj/
+AppPackages/
+BundleArtifacts/
+signed/
+*.appx
+*.appxbundle
+*.appxsym
+*.appxupload
+*.msix
+*.msixbundle
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.pfx
+*.cer
+*.b64
+*.key
+
+# Certificado de CI (PFX legada em base64, necessaria para assinar no Actions)
+!certs/ci-legacy.b64
+
+# Diversos
+__pycache__/
+*.pyc

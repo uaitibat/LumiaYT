@@ -1,0 +1,16 @@
+<Application
+    x:Class="LumiaYT.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LumiaYT"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="PageBrush" Color="#FF0F0F0F" />
+            <SolidColorBrush x:Key="CardBrush" Color="#FF1C1C1C" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF1F1F1" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#FFAAAAAA" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#FFFF0000" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
