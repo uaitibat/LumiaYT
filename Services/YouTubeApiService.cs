@@ -32,15 +32,21 @@ namespace LumiaYT.Services
             return ParseVideoItems(json, isVideoList: true);
         }
 
+        public static async Task<List<VideoItem>> GetRecommendedAsync(int maxResults = 20)
+        {
+            // YouTube Data API v3 has no personalized home feed. Approximate with popular videos.
+            // When logged in, HomePage also shows subscriptions; this keeps a "Recommended" section.
+            var list = await GetTrendingAsync("BR", maxResults);
+            return list;
+        }
+
         public static async Task<List<VideoItem>> GetSubscriptionsAsync(int maxResults = 20)
         {
-            var settings = await SettingsService.GetAsync();
             var token = await AuthService.GetValidAccessTokenAsync();
             if (string.IsNullOrWhiteSpace(token)) return new List<VideoItem>();
 
             var url = BaseUrl + "/subscriptions?part=snippet&mine=true&maxResults=" + maxResults;
             var json = await HttpService.GetStringWithAuthAsync(url, token);
-            // For simplicity, return channels as items with channel info; later can fetch uploads
             var list = new List<VideoItem>();
             if (string.IsNullOrWhiteSpace(json)) return list;
             try

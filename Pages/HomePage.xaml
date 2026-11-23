@@ -25,9 +25,15 @@
                 <TextBlock Text="  YT" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Style="{StaticResource IconButtonStyle}" FontFamily="Segoe MDL2 Assets" Content="&#xE72C;" Click="Refresh_Click" ToolTipService.ToolTip="Atualizar" />
-                <Button Style="{StaticResource IconButtonStyle}" FontFamily="Segoe MDL2 Assets" Content="&#xE713;" Click="Settings_Click" ToolTipService.ToolTip="Configurações" />
+                <Button x:Name="UserButton" Style="{StaticResource IconButtonStyle}" Click="Settings_Click" ToolTipService.ToolTip="Você">
+                    <Grid Width="28" Height="28">
+                        <Border CornerRadius="14" Background="{ThemeResource SurfaceAltBrush}" />
+                        <FontIcon x:Name="UserButtonIcon" Glyph="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{ThemeResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image x:Name="UserButtonAvatar" Stretch="UniformToFill" />
+                    </Grid>
+                </Button>
             </StackPanel>
         </Grid>
 
@@ -43,11 +49,14 @@
             </Grid>
         </Border>
 
-        <!-- Tabs/filters -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="12,0,12,8">
-            <Button x:Name="TrendingTab" Content="Trending" Style="{StaticResource FilterButtonStyle}" Margin="0,0,6,0" Click="Trending_Click" />
-            <Button x:Name="SubsTab" Content="Inscrições" Style="{StaticResource FilterButtonStyle}" Click="Subs_Click" />
-        </StackPanel>
+        <!-- Tabs -->
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="12,0,12,8">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="RecommendedTab" Content="Recomendados" Style="{StaticResource FilterButtonStyle}" Margin="0,0,6,0" Click="Recommended_Click" />
+                <Button x:Name="TrendingTab" Content="Em alta" Style="{StaticResource FilterButtonStyle}" Margin="0,0,6,0" Click="Trending_Click" />
+                <Button x:Name="SubsTab" Content="Inscrições" Style="{StaticResource FilterButtonStyle}" Click="Subs_Click" />
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- Results -->
         <Grid Grid.Row="3">
@@ -81,6 +90,10 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+
+            <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
+                <TextBlock x:Name="EmptyStateText" Style="{StaticResource BodyTextStyle}" TextAlignment="Center" TextWrapping="Wrap" />
+            </StackPanel>
 
             <ProgressRing x:Name="LoadingRing" IsActive="False" Width="40" Height="40" Foreground="{ThemeResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>

@@ -12,50 +12,34 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Button Style="{StaticResource IconButtonStyle}" FontFamily="Segoe MDL2 Assets" Content="&#xE72B;" Click="Back_Click" />
-                <TextBlock Grid.Column="1" Text="Configurações" Style="{StaticResource AppTitleTextStyle}" FontSize="20" Margin="4,0,0,0" />
+                <TextBlock Grid.Column="1" Text="Você" Style="{StaticResource AppTitleTextStyle}" FontSize="20" Margin="4,0,0,0" />
             </Grid>
 
+            <!-- Conta / perfil -->
             <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
                 <StackPanel>
-                    <TextBlock Text="YOUTUBE DATA API" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
-                    <TextBlock Text="API Key (v3)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
-                    <TextBox x:Name="ApiKeyBox" PlaceholderText="AIza..." />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
-                <StackPanel>
-                    <TextBlock Text="LOGIN OFICIAL GOOGLE" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
-                    <TextBlock Text="Client ID" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
-                    <TextBox x:Name="ClientIdBox" PlaceholderText="....apps.googleusercontent.com" Margin="0,0,0,10" />
-                    <TextBlock Text="Client Secret (opcional no device code)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
-                    <PasswordBox x:Name="ClientSecretBox" PlaceholderText="Client secret" Margin="0,0,0,10" />
-                    <TextBlock x:Name="RedirectUriText" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
-                <StackPanel>
-                    <TextBlock Text="IMPORTAR CONFIG (TXT)" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
-                    <TextBlock Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="0,0,0,8"
-                               Text="Importe um arquivo .txt com key=valor (YouTubeApiKey, GoogleClientId, GoogleClientSecret). Também aceita JSON/OAuth JSON." />
-                    <Button Content="Importar arquivo..." Style="{StaticResource MetroButtonStyle}" Click="ImportFile_Click" />
-                    <TextBlock Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Text="Auto-import: coloque 'lumia-yt-config.txt' em LocalState do app e ele importa ao abrir Configurações." />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
-                <StackPanel>
-                    <TextBlock Text="CONTA" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="56" Height="56" CornerRadius="28" Background="{ThemeResource SurfaceAltBrush}">
+                            <Grid>
+                                <FontIcon x:Name="UserIcon" Glyph="&#xE77B;" FontFamily="Segoe MDL2 Assets" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image x:Name="UserAvatar" Stretch="UniformToFill" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="UserNameText" Text="Não conectado" Style="{StaticResource PageHeaderTextStyle}" />
+                            <TextBlock x:Name="UserEmailText" Text="Faça login para ver suas inscrições e recomendações" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
                     <TextBlock x:Name="AuthStatusText" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" Margin="0,0,0,10" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Salvar" Style="{StaticResource MetroButtonStyle}" Background="{ThemeResource AccentBrush}" Foreground="{ThemeResource TextOnAccentBrush}" Click="Save_Click" Margin="0,0,8,0" />
-                        <Button Content="Login (WebView)" Style="{StaticResource MetroButtonStyle}" Click="WebViewLogin_Click" Margin="0,0,8,0" />
-                        <Button Content="Logout" Style="{StaticResource MetroButtonStyle}" Click="Logout_Click" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="LoginCodeButton" Content="Entrar com código" Style="{StaticResource MetroButtonStyle}" Background="{ThemeResource AccentBrush}" Foreground="{ThemeResource TextOnAccentBrush}" Click="DeviceCodeLogin_Click" Margin="0,0,8,0" />
+                        <Button x:Name="LogoutButton" Content="Sair" Style="{StaticResource MetroButtonStyle}" Click="Logout_Click" Visibility="Collapsed" />
                     </StackPanel>
-                    <Button Content="Login WAB (sistema)" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="Login_Click" Margin="0,0,0,8" />
-                    <Button x:Name="DeviceCodeButton" Content="Login por código (recomendado W10M)" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="DeviceCodeLogin_Click" />
+
                     <Border x:Name="DeviceCodePanel" Visibility="Collapsed" Background="{ThemeResource SurfaceAltBrush}" CornerRadius="3" Padding="10" Margin="0,10,0,0">
                         <StackPanel>
                             <TextBlock Text="Abra no PC/outro navegador:" Style="{StaticResource MetaTextStyle}" />
@@ -67,6 +51,42 @@
                     </Border>
                 </StackPanel>
             </Border>
+
+            <!-- Advanced / dev -->
+            <Button x:Name="AdvancedToggle" Content="Mostrar opções avançadas" Style="{StaticResource MetroButtonStyle}" HorizontalAlignment="Stretch" Click="AdvancedToggle_Click" Margin="0,0,0,8" />
+
+            <StackPanel x:Name="AdvancedPanel" Visibility="Collapsed">
+                <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="YOUTUBE DATA API" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
+                        <TextBlock Text="API Key (v3)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ApiKeyBox" PlaceholderText="AIza..." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="OAUTH" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
+                        <TextBlock Text="Client ID" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ClientIdBox" PlaceholderText="....apps.googleusercontent.com" Margin="0,0,0,10" />
+                        <TextBlock Text="Client Secret (opcional no device code)" Style="{StaticResource MetaTextStyle}" Margin="0,0,0,4" />
+                        <PasswordBox x:Name="ClientSecretBox" PlaceholderText="Client secret" Margin="0,0,0,10" />
+                        <TextBlock x:Name="RedirectUriText" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardContainerStyle}" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="IMPORTAR CONFIG" Style="{StaticResource SubheaderTextStyle}" Margin="0,0,0,8" />
+                        <Button Content="Importar arquivo..." Style="{StaticResource MetroButtonStyle}" Click="ImportFile_Click" />
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Salvar" Style="{StaticResource MetroButtonStyle}" Background="{ThemeResource AccentBrush}" Foreground="{ThemeResource TextOnAccentBrush}" Click="Save_Click" Margin="0,0,8,0" />
+                            <Button Content="Login (WebView)" Style="{StaticResource MetroButtonStyle}" Click="WebViewLogin_Click" Margin="0,0,8,0" />
+                            <Button Content="Login WAB" Style="{StaticResource MetroButtonStyle}" Click="Login_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
             <TextBlock x:Name="StatusText" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="12,0,12,0" />
         </StackPanel>

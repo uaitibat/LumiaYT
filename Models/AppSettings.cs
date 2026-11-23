@@ -9,5 +9,11 @@ namespace LumiaYT.Models
         public string RefreshToken { get; set; } = string.Empty;
         public string TokenExpiryUtc { get; set; } = string.Empty;
         public string PreferredQuality { get; set; } = "360p";
+
+        public string UserDisplayName { get; set; } = string.Empty;
+        public string UserEmail { get; set; } = string.Empty;
+        public string UserAvatarUrl { get; set; } = string.Empty;
+        public string UserChannelId { get; set; } = string.Empty;
+        public string UserChannelTitle { get; set; } = string.Empty;
     }
 }

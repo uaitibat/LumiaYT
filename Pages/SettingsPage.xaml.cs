@@ -6,6 +6,7 @@ using Windows.Storage.Pickers;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 
 namespace LumiaYT.Pages
@@ -14,6 +15,7 @@ namespace LumiaYT.Pages
     {
         private AppSettings _settings;
         private CancellationTokenSource _deviceCts;
+        private bool _advancedVisible;
 
         public SettingsPage() { InitializeComponent(); }
 
@@ -26,7 +28,7 @@ namespace LumiaYT.Pages
             ClientIdBox.Text = _settings.GoogleClientId ?? "";
             ClientSecretBox.Password = _settings.GoogleClientSecret ?? "";
             RedirectUriText.Text = "Redirect URI (WAB): " + AuthService.GetRedirectUri();
-            UpdateAuthStatus();
+            await RefreshAccountUiAsync();
             if (!string.IsNullOrWhiteSpace(autoMsg)) StatusText.Text = autoMsg;
         }
 
@@ -36,10 +38,35 @@ namespace LumiaYT.Pages
             CancelDeviceFlow();
         }
 
-        private void UpdateAuthStatus()
+        private async System.Threading.Tasks.Task RefreshAccountUiAsync()
         {
             var logged = !string.IsNullOrWhiteSpace(_settings.RefreshToken) || !string.IsNullOrWhiteSpace(_settings.AccessToken);
-            AuthStatusText.Text = logged ? "Login: ativo (token salvo)" : "Login: não conectado";
+            AuthStatusText.Text = logged ? "Conectado" : "Não conectado";
+            LoginCodeButton.Visibility = logged ? Visibility.Collapsed : Visibility.Visible;
+            LogoutButton.Visibility = logged ? Visibility.Visible : Visibility.Collapsed;
+
+            if (logged)
+            {
+                if (string.IsNullOrWhiteSpace(_settings.UserDisplayName))
+                    await AuthService.TryFetchUserProfileAsync(_settings);
+
+                _settings = await SettingsService.GetAsync();
+                UserNameText.Text = !string.IsNullOrWhiteSpace(_settings.UserChannelTitle) ? _settings.UserChannelTitle : (!string.IsNullOrWhiteSpace(_settings.UserDisplayName) ? _settings.UserDisplayName : "Conta Google");
+                UserEmailText.Text = !string.IsNullOrWhiteSpace(_settings.UserEmail) ? _settings.UserEmail : "Conta conectada";
+                if (!string.IsNullOrWhiteSpace(_settings.UserAvatarUrl))
+                {
+                    try { UserAvatar.Source = new BitmapImage(new Uri(_settings.UserAvatarUrl)); UserIcon.Visibility = Visibility.Collapsed; }
+                    catch { UserAvatar.Source = null; UserIcon.Visibility = Visibility.Visible; }
+                }
+                else { UserAvatar.Source = null; UserIcon.Visibility = Visibility.Visible; }
+            }
+            else
+            {
+                UserNameText.Text = "Não conectado";
+                UserEmailText.Text = "Faça login para ver suas inscrições e recomendações";
+                UserAvatar.Source = null;
+                UserIcon.Visibility = Visibility.Visible;
+            }
         }
 
         private async System.Threading.Tasks.Task SaveSettingsAsync()
@@ -49,13 +76,10 @@ namespace LumiaYT.Pages
             _settings.GoogleClientSecret = (ClientSecretBox.Password ?? "").Trim();
             await SettingsService.SaveAsync(_settings);
             StatusText.Text = "Configurações salvas.";
-            UpdateAuthStatus();
+            await RefreshAccountUiAsync();
         }
 
-        private async void Save_Click(object sender, RoutedEventArgs e)
-        {
-            await SaveSettingsAsync();
-        }
+        private async void Save_Click(object sender, RoutedEventArgs e) { await SaveSettingsAsync(); }
 
         private async void ImportFile_Click(object sender, RoutedEventArgs e)
         {
@@ -76,7 +100,7 @@ namespace LumiaYT.Pages
                 ApiKeyBox.Text = _settings.YouTubeApiKey ?? "";
                 ClientIdBox.Text = _settings.GoogleClientId ?? "";
                 ClientSecretBox.Password = _settings.GoogleClientSecret ?? "";
-                UpdateAuthStatus();
+                await RefreshAccountUiAsync();
                 StatusText.Text = msg;
             }
             catch (Exception ex)
@@ -99,8 +123,8 @@ namespace LumiaYT.Pages
             StatusText.Text = "Abrindo login Google (WAB)...";
             var ok = await AuthService.LoginAsync();
             _settings = await SettingsService.GetAsync();
-            UpdateAuthStatus();
-            StatusText.Text = ok ? "Login concluído." : "Falha no login WAB. No W10M, use 'Login por código' ou 'Login (WebView)'.";
+            await RefreshAccountUiAsync();
+            StatusText.Text = ok ? "Login concluído." : "Falha no login WAB. Use 'Entrar com código'.";
         }
 
         private async void DeviceCodeLogin_Click(object sender, RoutedEventArgs e)
@@ -108,15 +132,15 @@ namespace LumiaYT.Pages
             CancelDeviceFlow();
             await SaveSettingsAsync();
 
-            DeviceCodeButton.IsEnabled = false;
+            LoginCodeButton.IsEnabled = false;
             StatusText.Text = "Gerando código de login...";
             DeviceCodePanel.Visibility = Visibility.Collapsed;
 
             var info = await AuthService.StartDeviceCodeFlowAsync();
             if (info == null)
             {
-                StatusText.Text = "Falha ao gerar código. Use um OAuth Client ID tipo 'TVs and Limited Input devices' no Google Cloud.";
-                DeviceCodeButton.IsEnabled = true;
+                StatusText.Text = "Falha ao gerar código. Verifique Client ID.";
+                LoginCodeButton.IsEnabled = true;
                 return;
             }
 
@@ -134,13 +158,14 @@ namespace LumiaYT.Pages
                 var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { DeviceStatusText.Text = msg; });
             });
 
-            DeviceCodeButton.IsEnabled = true;
+            LoginCodeButton.IsEnabled = true;
             _settings = await SettingsService.GetAsync();
-            UpdateAuthStatus();
+            await RefreshAccountUiAsync();
             if (ok)
             {
-                StatusText.Text = "Login por código concluído.";
-                DeviceStatusText.Text = "Conta conectada. Você pode voltar.";
+                StatusText.Text = "Login concluído.";
+                DeviceStatusText.Text = "Conta conectada.";
+                DeviceCodePanel.Visibility = Visibility.Collapsed;
             }
             else if (_deviceCts == null || _deviceCts.IsCancellationRequested)
             {
@@ -148,8 +173,15 @@ namespace LumiaYT.Pages
             }
             else
             {
-                StatusText.Text = "Login por código não concluído. Veja a mensagem acima.";
+                StatusText.Text = "Login não concluído. Veja a mensagem acima.";
             }
+        }
+
+        private void AdvancedToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _advancedVisible = !_advancedVisible;
+            AdvancedPanel.Visibility = _advancedVisible ? Visibility.Visible : Visibility.Collapsed;
+            AdvancedToggle.Content = _advancedVisible ? "Ocultar opções avançadas" : "Mostrar opções avançadas";
         }
 
         private void CancelDeviceFlow()
@@ -167,7 +199,7 @@ namespace LumiaYT.Pages
             CancelDeviceFlow();
             await AuthService.LogoutAsync();
             _settings = await SettingsService.GetAsync();
-            UpdateAuthStatus();
+            await RefreshAccountUiAsync();
             DeviceCodePanel.Visibility = Visibility.Collapsed;
             StatusText.Text = "Logout concluído.";
         }

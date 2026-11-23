@@ -23,10 +23,8 @@ namespace LumiaYT.Services
         private const string AuthEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
         private const string DeviceCodeEndpoint = "https://oauth2.googleapis.com/device/code";
         private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
-        private const string Scope = "https://www.googleapis.com/auth/youtube.readonly";
+        private const string Scope = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
-        // Fallback embutido para permitir login sem configurar Cloud Console.
-        // Pode parar de funcionar se revogado pelo provedor.
         private const string DefaultClientId = "170729868717-epodfoimm3bte91rpg06fbf79t92l5hj.apps.googleusercontent.com";
         private const string DefaultClientSecret = "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";
         public const string DefaultWebRedirectUri = "https://example.com/oauth2callback";
@@ -185,6 +183,8 @@ namespace LumiaYT.Services
                         var hasAccess = !string.IsNullOrWhiteSpace(obj.Value<string>("access_token"));
                         if (hasAccess && await ApplyTokenResponseAsync(settings, json, save: true))
                         {
+                            statusCallback?.Invoke("Login concluído. Carregando perfil...");
+                            await TryFetchUserProfileAsync(settings);
                             statusCallback?.Invoke("Login concluído.");
                             return true;
                         }
@@ -246,7 +246,9 @@ namespace LumiaYT.Services
             var resp = await HttpService.PostFormAsync(TokenEndpoint, form);
             if (resp == null || !resp.IsSuccessStatusCode) return false;
             var json = await resp.Content.ReadAsStringAsync();
-            return await ApplyTokenResponseAsync(settings, json, save: true);
+            var ok = await ApplyTokenResponseAsync(settings, json, save: true);
+            if (ok) await TryFetchUserProfileAsync(settings);
+            return ok;
         }
 
         public static async Task<string> GetValidAccessTokenAsync()
@@ -279,6 +281,52 @@ namespace LumiaYT.Services
             return settings.AccessToken;
         }
 
+        public static async Task<bool> TryFetchUserProfileAsync(AppSettings settings)
+        {
+            try
+            {
+                var token = await GetValidAccessTokenAsync();
+                if (string.IsNullOrWhiteSpace(token)) return false;
+
+                // userinfo
+                var userJson = await HttpService.GetStringWithAuthAsync("https://www.googleapis.com/oauth2/v2/userinfo", token);
+                if (!string.IsNullOrWhiteSpace(userJson))
+                {
+                    var u = JObject.Parse(userJson);
+                    settings.UserDisplayName = u.Value<string>("name") ?? settings.UserDisplayName;
+                    settings.UserEmail = u.Value<string>("email") ?? settings.UserEmail;
+                    settings.UserAvatarUrl = u.Value<string>("picture") ?? settings.UserAvatarUrl;
+                }
+
+                // YouTube channel
+                var chJson = await HttpService.GetStringWithAuthAsync("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", token);
+                if (!string.IsNullOrWhiteSpace(chJson))
+                {
+                    var c = JObject.Parse(chJson);
+                    var items = c["items"] as JArray;
+                    if (items != null && items.Count > 0)
+                    {
+                        var item = items[0];
+                        settings.UserChannelId = item.Value<string>("id") ?? settings.UserChannelId;
+                        var sn = item["snippet"];
+                        if (sn != null)
+                        {
+                            settings.UserChannelTitle = sn.Value<string>("title") ?? settings.UserChannelTitle;
+                            var thumb = sn["thumbnails"]?["default"]?.Value<string>("url");
+                            if (!string.IsNullOrWhiteSpace(thumb)) settings.UserAvatarUrl = thumb;
+                        }
+                    }
+                }
+
+                await SettingsService.SaveAsync(settings);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static async Task<bool> ApplyTokenResponseAsync(AppSettings settings, string json, bool save)
         {
             try
@@ -303,6 +351,11 @@ namespace LumiaYT.Services
             settings.AccessToken = string.Empty;
             settings.RefreshToken = string.Empty;
             settings.TokenExpiryUtc = string.Empty;
+            settings.UserDisplayName = string.Empty;
+            settings.UserEmail = string.Empty;
+            settings.UserAvatarUrl = string.Empty;
+            settings.UserChannelId = string.Empty;
+            settings.UserChannelTitle = string.Empty;
             await SettingsService.SaveAsync(settings);
         }
 
