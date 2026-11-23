@@ -34,21 +34,22 @@ namespace LumiaYT.Pages
             try
             {
                 var stream = await StreamResolverService.ResolveAsync(item.Id);
+                var dbg = StreamResolverService.LastDebug;
                 if (stream != null && !string.IsNullOrWhiteSpace(stream.Url))
                 {
                     var source = MediaSource.CreateFromUri(new Uri(stream.Url));
                     _player.Source = source;
                     _player.Play();
-                    StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "") + ". Se travar, use Abrir no navegador.";
+                    StatusText.Text = "Reproduzindo " + (stream.QualityLabel ?? "") + " via " + (stream.Source ?? "?") + ". " + (string.IsNullOrWhiteSpace(dbg) ? "" : "[" + dbg + "]");
                 }
                 else
                 {
-                    StatusText.Text = "Não consegui resolver um stream direto compatível com W10M. Você pode abrir no navegador.";
+                    StatusText.Text = "Não consegui resolver um stream direto compatível com W10M. " + (string.IsNullOrWhiteSpace(dbg) ? "" : "Debug: " + dbg);
                 }
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Erro ao resolver stream: " + ex.Message;
+                StatusText.Text = "Erro ao resolver stream: " + ex.Message + " " + StreamResolverService.LastDebug;
             }
         }
 
