@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -50,7 +51,7 @@ namespace LumiaYT.Services
         {
             LastDebug = "";
             if (string.IsNullOrWhiteSpace(videoId)) return new List<ResolvedStream>();
-            var dbg = new List<string>();
+            var dbg = new ConcurrentBag<string>();
             var all = new List<ResolvedStream>();
 
             // Run InnerTube and Piped in parallel for speed
@@ -96,7 +97,7 @@ namespace LumiaYT.Services
                 .ToList();
         }
 
-        private static async Task<List<ResolvedStream>> ResolvePipedAllAsync(string videoId, List<string> dbg)
+        private static async Task<List<ResolvedStream>> ResolvePipedAllAsync(string videoId, ConcurrentBag<string> dbg)
         {
             var tasks = PipedInstances.Select(async inst =>
             {
@@ -125,7 +126,7 @@ namespace LumiaYT.Services
             { Name = name; Version = version; UserAgent = ua; AndroidSdk = sdk; ApiKey = apiKey; }
         }
 
-        private static async Task<List<ResolvedStream>> ResolveInnerTubeAllAsync(string videoId, List<string> dbg)
+        private static async Task<List<ResolvedStream>> ResolveInnerTubeAllAsync(string videoId, ConcurrentBag<string> dbg)
         {
             var clients = new[]
             {
@@ -142,7 +143,7 @@ namespace LumiaYT.Services
             return all;
         }
 
-        private static async Task<List<ResolvedStream>> ResolveViaInnerTubeAsync(string videoId, InnerTubeClient client, List<string> dbg)
+        private static async Task<List<ResolvedStream>> ResolveViaInnerTubeAsync(string videoId, InnerTubeClient client, ConcurrentBag<string> dbg)
         {
             var clientObj = new JObject
             {
@@ -266,7 +267,7 @@ namespace LumiaYT.Services
             return parts;
         }
 
-        private static async Task<Decipherer> GetDeciphererAsync(List<string> dbg)
+        private static async Task<Decipherer> GetDeciphererAsync(ConcurrentBag<string> dbg)
         {
             lock (DecipherLock)
             {
