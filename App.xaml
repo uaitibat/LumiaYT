@@ -4,13 +4,175 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:LumiaYT"
     RequestedTheme="Dark">
+
     <Application.Resources>
         <ResourceDictionary>
-            <SolidColorBrush x:Key="PageBrush" Color="#FF0F0F0F" />
-            <SolidColorBrush x:Key="CardBrush" Color="#FF1C1C1C" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF1F1F1" />
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#FFAAAAAA" />
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="PageBrush" Color="#FF0F1012" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#FF1A1C20" />
+                    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#FF24272C" />
+                    <SolidColorBrush x:Key="CardBrush" Color="#FF1A1C20" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="#FF2D3136" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFA2A7AF" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#FF8B9199" />
+                    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF8B9199" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="PageBrush" Color="#FF0F1012" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#FF1A1C20" />
+                    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#FF24272C" />
+                    <SolidColorBrush x:Key="CardBrush" Color="#FF1A1C20" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="#FF2D3136" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFA2A7AF" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#FF8B9199" />
+                    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF8B9199" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PageBrush" Color="#FFF3F4F6" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#FFE8EBEF" />
+                    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="#FFD2D7DE" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF15171B" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF565C66" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#FF747B85" />
+                    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#FF747B85" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <SolidColorBrush x:Key="AccentBrush" Color="#FFFF0000" />
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFF4444" />
+            <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="TransparentBrush" Color="Transparent" />
+
+            <Style x:Key="AppTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="22" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="PageHeaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+
+            <Style x:Key="CardTitleTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="MaxLines" Value="2" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <Style x:Key="SubheaderTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+                <Setter Property="CharacterSpacing" Value="40" />
+            </Style>
+
+            <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+
+            <Style x:Key="MetaTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <Style x:Key="BaseButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource SurfaceAltBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource DividerBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="14,8" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" To="0.88" Duration="0" />
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" To="0.6" Duration="0" />
+                                            </Storyboard>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" To="0.35" Duration="0" />
+                                            </Storyboard>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Padding="{TemplateBinding Padding}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="MetroButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}" />
+
+            <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
+                <Setter Property="Background" Value="{ThemeResource TransparentBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="FontSize" Value="16" />
+            </Style>
+
+            <Style x:Key="FilterButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
+                <Setter Property="Background" Value="{ThemeResource SurfaceAltBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+                <Setter Property="Padding" Value="14,6" />
+                <Setter Property="FontSize" Value="11.5" />
+            </Style>
+
+            <Style x:Key="CardContainerStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource SurfaceBrush}" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="Margin" Value="12,0,12,8" />
+                <Setter Property="CornerRadius" Value="3" />
+            </Style>
+
+            <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Background" Value="{ThemeResource TransparentBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="10,8" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
