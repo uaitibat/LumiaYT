@@ -11,5 +11,6 @@ namespace LumiaYT.Models
         public string PublishedAt { get; set; } = string.Empty;
         public bool IsLive { get; set; }
         public string ViewCount { get; set; } = string.Empty;
+        public string Kind { get; set; } = "video"; // video | channel
     }
 }

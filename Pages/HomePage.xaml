@@ -37,14 +37,23 @@
             </StackPanel>
         </Grid>
 
-        <!-- Search -->
+        <!-- Search with suggestions -->
         <Border Grid.Row="1" Margin="12,6,12,6" Background="{ThemeResource SurfaceAltBrush}" CornerRadius="3">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="SearchBox" Style="{StaticResource SearchTextBoxStyle}" PlaceholderText="Buscar no YouTube..." KeyDown="SearchBox_KeyDown" />
+                <AutoSuggestBox x:Name="SearchBox"
+                                PlaceholderText="Buscar no YouTube..."
+                                TextChanged="SearchBox_TextChanged"
+                                QuerySubmitted="SearchBox_QuerySubmitted"
+                                SuggestionChosen="SearchBox_SuggestionChosen"
+                                UpdateTextOnSelect="True"
+                                Style="{x:Null}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Margin="4,0,0,0" />
                 <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" FontFamily="Segoe MDL2 Assets" Content="&#xE721;" Height="36" Width="40" Click="Search_Click" />
             </Grid>
         </Border>
@@ -58,9 +67,33 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Results -->
+        <!-- Content -->
         <Grid Grid.Row="3">
-            <ListView x:Name="VideoList" IsItemClickEnabled="True" ItemClick="VideoList_ItemClick" SelectionMode="None" Padding="8,0,8,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Subscription channels carousel -->
+            <ListView x:Name="SubsChannelsList" Grid.Row="0" Visibility="Collapsed" Height="86" Margin="8,0,8,6"
+                      ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollMode="Disabled" SelectionMode="None" IsItemClickEnabled="True"
+                      ItemClick="SubsChannelsList_ItemClick">
+                <ListView.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="72" Margin="4,0,4,0">
+                            <Border Width="52" Height="52" CornerRadius="26" Background="{ThemeResource SurfaceAltBrush}" HorizontalAlignment="Center">
+                                <Image Source="{Binding ThumbnailUrl}" Stretch="UniformToFill" />
+                            </Border>
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource MetaTextStyle}" TextAlignment="Center" MaxLines="1" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <ListView x:Name="VideoList" Grid.Row="1" IsItemClickEnabled="True" ItemClick="VideoList_ItemClick" SelectionMode="None" Padding="8,0,8,0"
+                      Loaded="VideoList_Loaded">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -89,13 +122,18 @@
                         </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
+                <ListView.Footer>
+                    <StackPanel Margin="0,4,0,12">
+                        <ProgressRing x:Name="MoreLoadingRing" IsActive="False" Width="28" Height="28" Foreground="{ThemeResource AccentBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </ListView.Footer>
             </ListView>
 
-            <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
+            <StackPanel x:Name="EmptyStatePanel" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="280">
                 <TextBlock x:Name="EmptyStateText" Style="{StaticResource BodyTextStyle}" TextAlignment="Center" TextWrapping="Wrap" />
             </StackPanel>
 
-            <ProgressRing x:Name="LoadingRing" IsActive="False" Width="40" Height="40" Foreground="{ThemeResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <ProgressRing x:Name="LoadingRing" Grid.Row="1" IsActive="False" Width="40" Height="40" Foreground="{ThemeResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
 
         <TextBlock x:Name="StatusText" Grid.Row="4" Style="{StaticResource MetaTextStyle}" TextWrapping="Wrap" Margin="12,4,12,8" />
