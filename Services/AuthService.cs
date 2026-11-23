@@ -182,12 +182,18 @@ namespace LumiaYT.Services
                     var error = obj.Value<string>("error");
                     if (string.IsNullOrWhiteSpace(error))
                     {
-                        if (ApplyTokenResponse(settings, json, save: true))
+                        var hasAccess = !string.IsNullOrWhiteSpace(obj.Value<string>("access_token"));
+                        if (hasAccess && await ApplyTokenResponseAsync(settings, json, save: true))
                         {
                             statusCallback?.Invoke("Login concluído.");
                             return true;
                         }
-                        statusCallback?.Invoke("Resposta de token inválida.");
+                        if (hasAccess)
+                        {
+                            statusCallback?.Invoke("Token recebido, mas falhou ao salvar.");
+                            return false;
+                        }
+                        statusCallback?.Invoke("Resposta inesperada: " + (json.Length > 120 ? json.Substring(0, 120) : json));
                         return false;
                     }
 
@@ -240,7 +246,7 @@ namespace LumiaYT.Services
             var resp = await HttpService.PostFormAsync(TokenEndpoint, form);
             if (resp == null || !resp.IsSuccessStatusCode) return false;
             var json = await resp.Content.ReadAsStringAsync();
-            return ApplyTokenResponse(settings, json, save: true);
+            return await ApplyTokenResponseAsync(settings, json, save: true);
         }
 
         public static async Task<string> GetValidAccessTokenAsync()
@@ -269,11 +275,11 @@ namespace LumiaYT.Services
             var resp = await HttpService.PostFormAsync(TokenEndpoint, form);
             if (resp == null || !resp.IsSuccessStatusCode) return string.Empty;
             var json = await resp.Content.ReadAsStringAsync();
-            if (!ApplyTokenResponse(settings, json, save: true)) return string.Empty;
+            if (!await ApplyTokenResponseAsync(settings, json, save: true)) return string.Empty;
             return settings.AccessToken;
         }
 
-        private static bool ApplyTokenResponse(AppSettings settings, string json, bool save)
+        private static async Task<bool> ApplyTokenResponseAsync(AppSettings settings, string json, bool save)
         {
             try
             {
@@ -285,7 +291,7 @@ namespace LumiaYT.Services
                 if (!string.IsNullOrWhiteSpace(refresh)) settings.RefreshToken = refresh;
                 var expires = obj.Value<int?>("expires_in") ?? 3600;
                 settings.TokenExpiryUtc = DateTimeOffset.UtcNow.AddSeconds(expires).ToString("o");
-                if (save) { var t = SettingsService.SaveAsync(settings); t.GetAwaiter().GetResult(); }
+                if (save) await SettingsService.SaveAsync(settings);
                 return true;
             }
             catch { return false; }
