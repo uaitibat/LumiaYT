@@ -88,6 +88,7 @@
     <Compile Include="Services\CacheService.cs" />
     <Compile Include="Services\LocalLibraryService.cs" />
     <Compile Include="Services\SettingsService.cs" />
+    <Compile Include="Services\StreamResolverService.cs" />
     <Compile Include="Services\YouTubeApiService.cs" />
   </ItemGroup>
   <ItemGroup>

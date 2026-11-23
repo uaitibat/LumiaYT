@@ -70,5 +70,17 @@ namespace LumiaYT.Services
             }
             catch { return ""; }
         }
+
+        public static async Task<string> PostJsonAsync(string url, string json)
+        {
+            try
+            {
+                var content = new System.Net.Http.StringContent(json ?? "", System.Text.Encoding.UTF8, "application/json");
+                var r = await Client.PostAsync(url, content);
+                if (!r.IsSuccessStatusCode) return "";
+                return await r.Content.ReadAsStringAsync();
+            }
+            catch { return ""; }
+        }
     }
 }
